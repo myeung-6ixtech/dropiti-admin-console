@@ -1,0 +1,838 @@
+
+# Airwallex Integration Guide for Real Estate Rental Platform
+
+## Table of Contents
+- [Technical Architecture Overview](#technical-architecture-overview)
+- [Pre-tenancy Flow Implementation](#pre-tenancy-flow-implementation)
+- [Monthly Rental Payment Flow](#monthly-rental-payment-flow)
+- [Fund Distribution Mechanics](#fund-distribution-mechanics)
+- [Implementation Notes](#implementation-notes)
+- [Database Structure](#database-structure)
+- [Error Handling](#error-handling)
+- [Security Considerations](#security-considerations)
+- [Webhook Implementation](#webhook-implementation)
+- [Sequence Diagrams](#sequence-diagrams)
+- [API Reference](#api-reference)
+
+## Technical Architecture Overview
+
+The real estate rental collection platform uses Airwallex as the payment processing solution to facilitate payments between tenants and landlords. The architecture leverages the following Airwallex APIs:
+
+1. **Payment Intents API** - For creating and managing one-time and recurring payment transactions
+2. **Payment Consents API** - For setting up recurring payments via saved payment methods
+3. **Customers API** - For storing customer information for tenants and landlords
+4. **Transfers API** - For disbursing funds to landlords after platform fee deduction
+
+### Key Components
+
+- **Frontend UI** - For tenants and landlords to interact with the platform
+- **Backend Services** - For handling business logic, payment processing, and fund distribution
+- **Database** - For storing platform and payment transaction data
+- **Webhook Handlers** - For processing asynchronous payment events from Airwallex
+
+## Pre-tenancy Flow Implementation
+
+The pre-tenancy flow handles the collection of security deposits from tenants before the start of a tenancy.
+
+### Step 1: Agreement Stage
+1. Tenant and Landlord agree on tenancy terms and deposit amount through the platform
+2. System records the agreement details including deposit amount
+
+### Step 2: Payment Authorization
+1. Create a customer record for the tenant
+
+```http
+POST /api/v1/pa/customers/create
+{
+  "request_id": "tenant-${UUID}",
+  "first_name": "Tenant's First Name",
+  "last_name": "Tenant's Last Name",
+  "email": "tenant@example.com",
+  "phone_number": "+1234567890",
+  "additional_info": {
+    "billing_address": {
+      "country_code": "US",
+      "state": "NY",
+      "city": "New York",
+      "street_address": "123 Main St",
+      "postcode": "10001"
+    }
+  }
+}
+```
+
+2. Create a Payment Intent for the deposit amount
+
+```http
+POST /api/v1/pa/payment_intents/create
+{
+  "request_id": "deposit-${UUID}",
+  "amount": 2000.00,
+  "currency": "USD",
+  "merchant_order_id": "deposit-order-${UUID}",
+  "customer_id": "{CUSTOMER_ID}",
+  "descriptor": "Deposit for 123 Main St",
+  "metadata": {
+    "property_id": "prop-123",
+    "landlord_id": "ll-456",
+    "agreement_id": "ag-789",
+    "payment_type": "deposit"
+  },
+  "capture_method": "manual"  // Important: Use manual to authorize now but capture later
+}
+```
+
+3. Tenant authorizes the payment by providing payment method details
+
+```http
+POST /api/v1/pa/payment_intents/{PAYMENT_INTENT_ID}/confirm
+{
+  "request_id": "deposit-confirm-${UUID}",
+  "payment_method": {
+    "type": "card",
+    "card": {
+      "number": "4242424242424242",
+      "expiry_month": "12",
+      "expiry_year": "2025",
+      "cvc": "123",
+      "name": "Tenant Name"
+    }
+  },
+  "return_url": "https://your-platform.com/payment/callback"
+}
+```
+
+### Step 3: Confirmation Stage
+1. Landlord confirms acceptance of tenant through platform
+2. Tenant provides final confirmation
+3. Platform captures the authorized payment
+
+```http
+POST /api/v1/pa/payment_intents/{PAYMENT_INTENT_ID}/capture
+{
+  "request_id": "deposit-capture-${UUID}",
+  "amount": 2000.00  // Full or partial amount
+}
+```
+
+### Step 4: Fund Distribution
+1. Calculate platform fee (e.g., 5% of deposit amount)
+2. Create a transfer to the landlord for the remaining amount
+
+```http
+POST /api/v1/transfers/create
+{
+  "request_id": "deposit-transfer-${UUID}",
+  "source_currency": "USD",
+  "transfer_currency": "USD",
+  "transfer_amount": 1900.00,  // Deposit minus platform fee
+  "beneficiary": {
+    "entity_type": "PERSONAL",
+    "first_name": "Landlord First Name",
+    "last_name": "Landlord Last Name",
+    "bank_details": {
+      "account_name": "Landlord Name",
+      "account_number": "123456789",
+      "bank_country_code": "US",
+      "account_routing_type1": "aba",
+      "account_routing_value1": "123456789",
+      "bank_name": "Example Bank",
+      "account_currency": "USD"
+    }
+  },
+  "reference": "Deposit for property #prop-123",
+  "metadata": {
+    "property_id": "prop-123",
+    "tenant_id": "tenant-123",
+    "payment_type": "deposit_distribution"
+  }
+}
+```
+
+## Monthly Rental Payment Flow
+
+The monthly rental payment flow handles recurring rent payments from tenants to landlords.
+
+### Step 1: Initial Setup
+1. Create Payment Consent for recurring payments
+
+```http
+POST /api/v1/pa/payment_consents/create
+{
+  "request_id": "consent-${UUID}",
+  "customer_id": "{CUSTOMER_ID}",
+  "currency": "USD",
+  "next_triggered_by": "merchant",
+  "metadata": {
+    "property_id": "prop-123",
+    "landlord_id": "ll-456",
+    "agreement_id": "ag-789",
+    "payment_type": "monthly_rent"
+  }
+}
+```
+
+2. Verify the Payment Consent with the tenant's payment method
+
+```http
+POST /api/v1/pa/payment_consents/{PAYMENT_CONSENT_ID}/verify
+{
+  "request_id": "consent-verify-${UUID}",
+  "payment_method": {
+    "type": "card",
+    "card": {
+      "number": "4242424242424242",
+      "expiry_month": "12", 
+      "expiry_year": "2025",
+      "cvc": "123",
+      "name": "Tenant Name"
+    }
+  },
+  "return_url": "https://your-platform.com/consent/callback"
+}
+```
+
+### Step 2: Recurring Payment Execution
+1. Create Payment Intent for the monthly rent
+
+```http
+POST /api/v1/pa/payment_intents/create
+{
+  "request_id": "rent-${UUID}",
+  "amount": 1500.00,
+  "currency": "USD",
+  "merchant_order_id": "rent-order-${UUID}",
+  "customer_id": "{CUSTOMER_ID}",
+  "descriptor": "Monthly rent for 123 Main St",
+  "metadata": {
+    "property_id": "prop-123",
+    "landlord_id": "ll-456",
+    "agreement_id": "ag-789",
+    "payment_type": "monthly_rent",
+    "period": "2025-05"
+  }
+}
+```
+
+2. Confirm the Payment Intent using the saved Payment Consent
+
+```http
+POST /api/v1/pa/payment_intents/{PAYMENT_INTENT_ID}/confirm
+{
+  "request_id": "rent-confirm-${UUID}",
+  "payment_consent_id": "{PAYMENT_CONSENT_ID}"
+}
+```
+
+### Step 3: Confirmation and Fund Distribution
+1. Calculate platform fee (e.g., 3% of monthly rent)
+2. Create transfer to landlord for the remaining amount
+
+```http
+POST /api/v1/transfers/create
+{
+  "request_id": "rent-transfer-${UUID}",
+  "source_currency": "USD",
+  "transfer_currency": "USD",
+  "transfer_amount": 1455.00,  // Rent minus platform fee
+  "beneficiary": {
+    "entity_type": "PERSONAL",
+    "first_name": "Landlord First Name",
+    "last_name": "Landlord Last Name",
+    "bank_details": {
+      "account_name": "Landlord Name",
+      "account_number": "123456789",
+      "bank_country_code": "US",
+      "account_routing_type1": "aba",
+      "account_routing_value1": "123456789",
+      "bank_name": "Example Bank",
+      "account_currency": "USD"
+    }
+  },
+  "reference": "May 2025 rent for property #prop-123",
+  "metadata": {
+    "property_id": "prop-123",
+    "tenant_id": "tenant-123",
+    "payment_type": "rent_distribution",
+    "period": "2025-05"
+  }
+}
+```
+
+## Fund Distribution Mechanics
+
+### Payment Splitting Strategy
+
+Airwallex does not provide native payment splitting functionality. Therefore, the platform must implement a two-step process:
+
+1. **Collection**: Collect the full payment from tenants using Payment Intents API
+2. **Distribution**: Calculate platform fees and create separate transfers to landlords
+
+### Fee Calculation
+
+The platform should implement fee calculation logic based on the payment type:
+
+```javascript
+// Pseudocode for fee calculation
+function calculatePlatformFee(paymentAmount, paymentType) {
+  switch(paymentType) {
+    case 'deposit':
+      return paymentAmount * 0.05; // 5% for deposits
+    case 'monthly_rent':
+      return paymentAmount * 0.03; // 3% for rent payments
+    default:
+      return paymentAmount * 0.04; // 4% for other payment types
+  }
+}
+```
+
+### Transaction Records
+
+The platform must maintain comprehensive transaction records for:
+
+1. Incoming payments from tenants
+2. Platform fee calculations
+3. Outgoing transfers to landlords
+
+This ensures full transparency and auditability of all financial transactions.
+
+## Implementation Notes
+
+### Payment Method Handling
+
+1. **Card Storage**: Use Payment Consents to securely store payment methods without storing card details in your own database.
+
+2. **Payment Method Selection**: When multiple payment methods are available, allow tenants to choose which method to use for each payment:
+
+```javascript
+// Pseudocode for retrieving saved payment methods
+async function getPaymentMethods(customerId) {
+  const response = await fetch(`/api/v1/pa/payment_consents?customer_id=${customerId}`);
+  return response.json();
+}
+```
+
+3. **Managing Expired Cards**: Implement regular checks for soon-to-expire payment methods and notify users to update them.
+
+### Scheduling Recurring Payments
+
+For monthly rental payments, implement a scheduled job that:
+
+1. Identifies due payments for the day
+2. Creates Payment Intents
+3. Confirms them using saved Payment Consents
+4. Processes transfers to landlords
+
+```javascript
+// Pseudocode for the recurring payment scheduler
+async function processRecurringPayments() {
+  const duePayments = await getDuePayments();
+
+  for (const payment of duePayments) {
+    try {
+      // Create payment intent
+      const paymentIntent = await createPaymentIntent(payment);
+
+      // Confirm payment intent
+      await confirmPaymentIntent(paymentIntent.id, payment.payment_consent_id);
+
+      // Transfer funds to landlord (minus platform fee)
+      await transferFundsToLandlord(payment);
+    } catch (error) {
+      // Log error and notify relevant parties
+      await handlePaymentError(payment, error);
+    }
+  }
+}
+```
+
+### Transaction Reconciliation
+
+Implement a daily reconciliation process to:
+
+1. Match all captured payments with corresponding transfers
+2. Identify and resolve any discrepancies
+3. Generate comprehensive reports for accounting purposes
+
+## Database Structure
+
+### Key Entities
+
+#### Users
+```sql
+CREATE TABLE users (
+  id UUID PRIMARY KEY,
+  type VARCHAR(20), -- 'tenant', 'landlord', 'admin'
+  first_name VARCHAR(100),
+  last_name VARCHAR(100),
+  email VARCHAR(255) UNIQUE,
+  phone_number VARCHAR(20),
+  created_at TIMESTAMP,
+  updated_at TIMESTAMP
+);
+```
+
+#### Properties
+```sql
+CREATE TABLE properties (
+  id UUID PRIMARY KEY,
+  landlord_id UUID REFERENCES users(id),
+  address_line1 VARCHAR(255),
+  address_line2 VARCHAR(255),
+  city VARCHAR(100),
+  state VARCHAR(100),
+  postal_code VARCHAR(20),
+  country_code VARCHAR(2),
+  created_at TIMESTAMP,
+  updated_at TIMESTAMP
+);
+```
+
+#### Tenancy Agreements
+```sql
+CREATE TABLE tenancy_agreements (
+  id UUID PRIMARY KEY,
+  property_id UUID REFERENCES properties(id),
+  tenant_id UUID REFERENCES users(id),
+  start_date DATE,
+  end_date DATE,
+  rent_amount DECIMAL(10, 2),
+  rent_currency VARCHAR(3),
+  deposit_amount DECIMAL(10, 2),
+  deposit_currency VARCHAR(3),
+  payment_day_of_month INTEGER,
+  status VARCHAR(20), -- 'draft', 'active', 'terminated'
+  created_at TIMESTAMP,
+  updated_at TIMESTAMP
+);
+```
+
+#### Payments
+```sql
+CREATE TABLE payments (
+  id UUID PRIMARY KEY,
+  agreement_id UUID REFERENCES tenancy_agreements(id),
+  tenant_id UUID REFERENCES users(id),
+  landlord_id UUID REFERENCES users(id),
+  type VARCHAR(20), -- 'deposit', 'rent', 'other'
+  amount DECIMAL(10, 2),
+  currency VARCHAR(3),
+  platform_fee DECIMAL(10, 2),
+  period VARCHAR(7), -- 'YYYY-MM' for rent payments
+  payment_intent_id VARCHAR(255),
+  payment_intent_status VARCHAR(50),
+  transfer_id VARCHAR(255),
+  transfer_status VARCHAR(50),
+  created_at TIMESTAMP,
+  updated_at TIMESTAMP
+);
+```
+
+#### Payment Methods
+```sql
+CREATE TABLE payment_methods (
+  id UUID PRIMARY KEY,
+  user_id UUID REFERENCES users(id),
+  payment_consent_id VARCHAR(255),
+  payment_method_type VARCHAR(20), -- 'card', 'bank_account'
+  last_four VARCHAR(4),
+  expiry_month VARCHAR(2),
+  expiry_year VARCHAR(4),
+  is_default BOOLEAN,
+  created_at TIMESTAMP,
+  updated_at TIMESTAMP
+);
+```
+
+### Database Relationships Diagram
+
+```
+Users (1) --- (*) Tenancy Agreements (*) --- (1) Properties
+   |              |
+   |              |
+   |              v
+   +---(1)---> Payments
+   |
+   v
+Payment Methods
+```
+
+## Error Handling
+
+### Payment Processing Errors
+
+Implement comprehensive error handling for payment processing failures:
+
+#### Payment Intent Creation/Confirmation Errors
+```javascript
+try {
+  // Create or confirm payment intent
+} catch (error) {
+  if (error.code === 'card_declined') {
+    // Notify tenant about declined card
+    await notifyTenant(tenant.id, 'payment_declined', { reason: error.decline_reason });
+  } else if (error.code === 'insufficient_funds') {
+    // Notify tenant about insufficient funds
+    await notifyTenant(tenant.id, 'insufficient_funds');
+  } else {
+    // Log error for investigation
+    await logPaymentError(error);
+    // Notify tenant about general payment error
+    await notifyTenant(tenant.id, 'payment_error');
+  }
+}
+```
+
+#### Transfer Errors
+```javascript
+try {
+  // Create transfer to landlord
+} catch (error) {
+  // Log transfer error
+  await logTransferError(error);
+
+  // Notify admin about transfer failure
+  await notifyAdministrators('transfer_failed', { 
+    landlord_id: landlord.id,
+    payment_id: payment.id,
+    error_code: error.code 
+  });
+
+  // Retry logic for certain errors
+  if (isRetryableError(error)) {
+    await scheduleTransferRetry(payment.id, 30); // Retry in 30 minutes
+  }
+}
+```
+
+### Common Error Scenarios
+
+1. **Card Declined**: Notify tenant and provide options to update payment method
+2. **3DS Authentication Required**: Redirect user to complete authentication
+3. **Insufficient Funds**: Notify tenant and offer alternative payment methods
+4. **Transfer Failures**: Notify administrators and implement retry logic
+5. **Connection Errors**: Implement retry with exponential backoff
+
+## Security Considerations
+
+### PCI Compliance
+
+1. **Never store card details** in your database. Use Airwallex's Payment Consents to store payment methods securely.
+
+2. **Implement proper TLS/SSL** for all communications between your platform and Airwallex.
+
+3. **Use tokenization** for card details whenever possible.
+
+### API Authentication
+
+1. **Secure API key storage**: Store Airwallex API keys in environment variables or a secure vault.
+
+```javascript
+// Example of securely initializing the Airwallex client
+const airwallex = new AirwallexClient({
+  apiKey: process.env.AIRWALLEX_API_KEY,
+  clientId: process.env.AIRWALLEX_CLIENT_ID,
+  environment: process.env.NODE_ENV === 'production' ? 'prod' : 'demo'
+});
+```
+
+2. **Implement role-based access control** for API endpoints in your platform.
+
+### Data Protection
+
+1. **Encrypt sensitive data** at rest and in transit.
+
+2. **Implement proper logging** without recording sensitive payment information.
+
+```javascript
+// Example of safe logging
+function logPaymentEvent(event, data) {
+  // Mask sensitive information
+  const safeData = {
+    ...data,
+    payment_method: data.payment_method ? {
+      ...data.payment_method,
+      card: data.payment_method.card ? {
+        ...data.payment_method.card,
+        number: maskCardNumber(data.payment_method.card.number),
+        cvc: '***'
+      } : undefined
+    } : undefined
+  };
+
+  logger.info(`Payment event ${event}`, safeData);
+}
+
+function maskCardNumber(cardNumber) {
+  if (!cardNumber) return undefined;
+  return cardNumber.slice(0, 4) + '********' + cardNumber.slice(-4);
+}
+```
+
+## Webhook Implementation
+
+### Webhook Registration
+
+Register webhook endpoints with Airwallex to receive event notifications.
+
+### Key Event Types to Handle
+
+1. **Payment Intent Events**
+   - `payment_intent.succeeded`
+   - `payment_intent.requires_customer_action`
+   - `payment_intent.failed`
+
+2. **Payment Consent Events**
+   - `payment_consent.verified`
+   - `payment_consent.requires_payment_method`
+   - `payment_consent.requires_customer_action`
+
+3. **Transfer Events**
+   - `transfer.sent`
+   - `transfer.failed`
+
+### Webhook Handler Implementation
+
+```javascript
+// Example webhook handler for payment_intent.succeeded
+app.post('/webhooks/airwallex', async (req, res) => {
+  const event = req.body;
+
+  // Verify webhook signature
+  if (!verifyAirwallexWebhook(req.headers['x-signature'], event)) {
+    return res.status(400).send('Invalid signature');
+  }
+
+  try {
+    switch (event.type) {
+      case 'payment_intent.succeeded':
+        await handlePaymentSucceeded(event.data);
+        break;
+
+      case 'payment_intent.requires_customer_action':
+        await handleCustomerActionRequired(event.data);
+        break;
+
+      case 'payment_intent.failed':
+        await handlePaymentFailed(event.data);
+        break;
+
+      case 'payment_consent.verified':
+        await handlePaymentConsentVerified(event.data);
+        break;
+
+      case 'transfer.sent':
+        await handleTransferSent(event.data);
+        break;
+
+      case 'transfer.failed':
+        await handleTransferFailed(event.data);
+        break;
+
+      default:
+        // Log unhandled event type
+        console.log(`Unhandled webhook event: ${event.type}`);
+    }
+
+    res.status(200).send('Event processed');
+  } catch (error) {
+    console.error(`Error processing webhook: ${error.message}`);
+
+    // Return 200 to acknowledge receipt even if processing failed
+    // This prevents Airwallex from retrying the webhook
+    res.status(200).send('Event received, processing failed');
+  }
+});
+
+// Helper function to verify webhook signature
+function verifyAirwallexWebhook(signature, payload) {
+  // Implementation for signature verification
+  // ...
+}
+```
+
+### Webhook Handler Functions
+
+Implement functions for each webhook event type:
+
+```javascript
+async function handlePaymentSucceeded(data) {
+  // Update payment status in database
+  await updatePaymentStatus(data.id, 'succeeded');
+
+  // Check if this is a deposit payment
+  const metadata = data.metadata || {};
+  if (metadata.payment_type === 'deposit') {
+    // Handle deposit payment success
+    await notifyLandlord(metadata.landlord_id, 'deposit_received', {
+      property_id: metadata.property_id,
+      amount: data.amount,
+      currency: data.currency
+    });
+  } else if (metadata.payment_type === 'monthly_rent') {
+    // Handle rent payment success
+    await notifyLandlord(metadata.landlord_id, 'rent_received', {
+      property_id: metadata.property_id,
+      period: metadata.period,
+      amount: data.amount,
+      currency: data.currency
+    });
+  }
+
+  // Initiate transfer to landlord
+  await createLandlordTransfer(data);
+}
+
+async function handlePaymentFailed(data) {
+  // Update payment status in database
+  await updatePaymentStatus(data.id, 'failed');
+
+  // Notify tenant about payment failure
+  const metadata = data.metadata || {};
+  await notifyTenant(metadata.tenant_id, 'payment_failed', {
+    property_id: metadata.property_id,
+    amount: data.amount,
+    currency: data.currency,
+    failure_reason: data.failure_reason
+  });
+}
+
+// Additional handler functions for other event types
+```
+
+### Webhook Reliability
+
+To ensure reliable webhook processing:
+
+1. **Implement idempotency** to handle duplicate webhook events.
+
+```javascript
+async function processWebhookEvent(event) {
+  // Check if event has been processed before
+  const existingEvent = await db.webhookEvents.findOne({ 
+    event_id: event.id 
+  });
+
+  if (existingEvent) {
+    console.log(`Event ${event.id} already processed, skipping`);
+    return;
+  }
+
+  // Process the event
+  // ...
+
+  // Record event as processed
+  await db.webhookEvents.insert({
+    event_id: event.id,
+    event_type: event.type,
+    processed_at: new Date()
+  });
+}
+```
+
+2. **Implement a fallback mechanism** for missed webhooks, such as scheduled status checks.
+
+## Sequence Diagrams
+
+### Pre-tenancy Flow Sequence Diagram
+
+```mermaid
+sequenceDiagram
+    participant Tenant
+    participant Platform
+    participant Airwallex API
+    participant Landlord
+
+    Tenant->>Platform: Request lease
+    Platform->>Airwallex API: Create Customer
+    Platform->>Airwallex API: Create Payment Intent
+    Platform->>Tenant: Payment authorization
+    Tenant->>Platform: Provide payment details
+    Platform->>Airwallex API: Confirm Payment Intent
+
+    Airwallex API->>Platform: Authorization successful
+    Platform->>Landlord: Confirmation request
+    Landlord->>Platform: Accept tenant
+    Platform->>Tenant: Final confirmation
+    Tenant->>Platform: Confirm
+
+    Platform->>Airwallex API: Capture Payment Intent
+    Airwallex API->>Platform: Capture successful
+    Platform->>Airwallex API: Create Transfer to landlord
+    Airwallex API->>Platform: Transfer successful
+    Platform->>Landlord: Payment notification
+```
+
+### Monthly Rental Payment Flow Sequence Diagram
+
+```mermaid
+sequenceDiagram
+    participant Tenant
+    participant Platform
+    participant Airwallex API
+    participant Landlord
+
+    Tenant->>Platform: Setup recurring payment
+    Platform->>Airwallex API: Create Payment Consent
+    Platform->>Tenant: Verify payment method
+    Tenant->>Platform: Provide payment details
+    Platform->>Airwallex API: Verify Payment Consent
+
+    Note over Platform: Monthly payment due
+    Platform->>Airwallex API: Create Payment Intent
+    Platform->>Airwallex API: Confirm with Consent ID
+
+    Airwallex API->>Platform: Payment successful
+    Platform->>Airwallex API: Create Transfer to landlord
+    Airwallex API->>Platform: Transfer successful
+    Platform->>Tenant: Payment receipt
+    Platform->>Landlord: Payment notification
+```
+
+## API Reference
+
+### Airwallex API Endpoints
+
+#### Customer Management
+- **Create Customer**: `POST /api/v1/pa/customers/create`
+- **Get Customer**: `GET /api/v1/pa/customers/{id}`
+- **Update Customer**: `POST /api/v1/pa/customers/{id}/update`
+
+#### Payment Intents
+- **Create Payment Intent**: `POST /api/v1/pa/payment_intents/create`
+- **Confirm Payment Intent**: `POST /api/v1/pa/payment_intents/{id}/confirm`
+- **Capture Payment Intent**: `POST /api/v1/pa/payment_intents/{id}/capture`
+- **Cancel Payment Intent**: `POST /api/v1/pa/payment_intents/{id}/cancel`
+- **Get Payment Intent**: `GET /api/v1/pa/payment_intents/{id}`
+
+#### Payment Consents
+- **Create Payment Consent**: `POST /api/v1/pa/payment_consents/create`
+- **Verify Payment Consent**: `POST /api/v1/pa/payment_consents/{id}/verify`
+- **Get Payment Consent**: `GET /api/v1/pa/payment_consents/{id}`
+- **List Payment Consents**: `GET /api/v1/pa/payment_consents`
+
+#### Transfers
+- **Create Transfer**: `POST /api/v1/transfers/create`
+- **Get Transfer**: `GET /api/v1/transfers/{id}`
+- **List Transfers**: `GET /api/v1/transfers`
+
+### Error Codes
+
+| Error Code | Description | Recommended Action |
+|------------|-------------|-------------------|
+| `card_declined` | Card was declined by issuer | Notify tenant and request alternative payment method |
+| `insufficient_funds` | Insufficient funds in the account | Notify tenant and request alternative funding |
+| `expired_card` | The card has expired | Notify tenant to update card details |
+| `invalid_card` | Card data is invalid | Request tenant to verify and re-enter card details |
+| `processing_error` | Error occurred during processing | Retry the payment after a short delay |
+| `authentication_required` | 3DS authentication required | Redirect customer to complete 3DS authentication |
+
+### Rate Limits
+
+Airwallex API has rate limits that must be considered when implementing your platform. Implement appropriate retry mechanisms with exponential backoff for rate limit errors.
+
+## Conclusion
+
+This integration guide provides a comprehensive framework for implementing Airwallex payment processing in your real estate rental platform. By following the outlined flows and best practices, you can create a robust payment system that handles pre-tenancy deposits and monthly rental payments securely and efficiently.
+
+Remember to test thoroughly in Airwallex's sandbox environment before moving to production, and to implement proper error handling and security measures to ensure a reliable payment experience for your users.
