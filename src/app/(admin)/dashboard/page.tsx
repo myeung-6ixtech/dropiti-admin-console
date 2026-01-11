@@ -64,7 +64,21 @@ export default function Dashboard() {
                     Role:
                   </span>
                   <span className="ml-2 text-gray-900 dark:text-white">
-                    {user?.role}
+                    {user?.role === 'super_admin' 
+                      ? 'Super Administrator' 
+                      : user?.role === 'system_admin'
+                      ? 'System Administrator'
+                      : user?.role === 'user_admin'
+                      ? 'User Administrator'
+                      : user?.role === 'content_admin'
+                      ? 'Content Administrator'
+                      : user?.role === 'analytics_admin'
+                      ? 'Analytics Administrator'
+                      : user?.role === 'support_admin'
+                      ? 'Support Administrator'
+                      : user?.role === 'viewer'
+                      ? 'Viewer'
+                      : user?.role || 'No role assigned'}
                   </span>
                 </div>
               </div>

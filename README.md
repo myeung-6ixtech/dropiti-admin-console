@@ -64,6 +64,42 @@ git clone https://github.com/TailAdmin/free-nextjs-admin-dashboard.git
     yarn dev
     ```
 
+## 🔐 Administrator Authentication System
+
+This project includes a **production-ready administrator authentication system** with database-backed user management.
+
+### Features
+- ✅ Secure PBKDF2 password hashing (100,000 iterations)
+- ✅ Session-based authentication with HTTP-only cookies
+- ✅ Role-based access control (7 predefined roles)
+- ✅ Login attempt tracking and audit trails
+- ✅ PostgreSQL database with Hasura GraphQL integration
+- ✅ Account status management (active/inactive/suspended)
+
+### Quick Setup
+
+```bash
+# 1. Create database schema
+psql -h HOST -U USER -d DATABASE -f documentation/guides/administrator_users_export.sql
+
+# 2. Generate admin password
+node scripts/generate-admin-password.js
+
+# 3. Run the generated SQL INSERT command in your database
+
+# 4. Configure .env.local
+SDK_BACKEND_URL=https://your-hasura-instance.hasura.app/v1/graphql
+SDK_HASURA_ADMIN_SECRET=your-admin-secret
+
+# 5. Test login at http://localhost:3000/signin
+```
+
+### Documentation
+- 📚 **Quick Start:** [`QUICKSTART.md`](./QUICKSTART.md) - Get up and running in 5 minutes
+- 📖 **Complete Setup:** [`ADMIN_AUTH_SETUP.md`](./ADMIN_AUTH_SETUP.md) - Detailed setup guide
+- 🔍 **Implementation Details:** [`IMPLEMENTATION_SUMMARY.md`](./IMPLEMENTATION_SUMMARY.md)
+- 📝 **Schema Documentation:** [`documentation/guides/administrator_users.md`](./documentation/guides/administrator_users.md)
+
 ## Components
 
 TailAdmin is a pre-designed starting point for building a web-based dashboard using Next.js and Tailwind CSS. The template includes:

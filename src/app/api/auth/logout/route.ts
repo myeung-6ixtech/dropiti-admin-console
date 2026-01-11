@@ -1,18 +1,41 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
-    const response = NextResponse.json({ success: true });
+    const cookieStore = await cookies();
+    const sessionToken = cookieStore.get("admin_session")?.value;
 
-    // Clear the session cookie
-    response.cookies.set("admin_session", "", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: 0, // Expire immediately
-    });
+    if (sessionToken) {
+      // Deactivate session in database
+      const mutation = `
+        mutation DeactivateSession($token: String!) {
+          update_real_estate_user_sessions(
+            where: { token: { _eq: $token } },
+            _set: { is_active: false }
+          ) {
+            affected_rows
+          }
+        }
+      `;
 
-    return response;
+      await fetch(process.env.NEXT_PUBLIC_HASURA_GRAPHQL_API_URL!, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-hasura-admin-secret': process.env.NEXT_PUBLIC_HASURA_GRAPHQL_ADMIN_SECRET!,
+        },
+        body: JSON.stringify({
+          query: mutation,
+          variables: { token: sessionToken }
+        }),
+      });
+    }
+
+    // Clear cookie
+    cookieStore.delete("admin_session");
+
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Logout error:", error);
     return NextResponse.json(
@@ -20,4 +43,4 @@ export async function POST() {
       { status: 500 }
     );
   }
-} 
+}

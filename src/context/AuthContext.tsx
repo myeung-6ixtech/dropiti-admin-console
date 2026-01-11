@@ -2,12 +2,24 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
+interface User {
+  id: string;
+  email: string;
+  name: string;
+  phone?: string;
+  role: string | null; // Normalized to role ID (e.g., "super_admin", "viewer")
+  permissions?: string[];
+  avatar?: string;
+  lastLogin?: string;
+}
+
 interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
-  user: any | null;
+  user: User | null;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
+  hasPermission: (permission: string) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -25,7 +37,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [user, setUser] = useState<any | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const router = useRouter();
 
   // Check authentication status on mount
@@ -43,7 +55,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       if (response.ok) {
         const data = await response.json();
         setIsAuthenticated(true);
-        setUser(data.user);
+        // Normalize role to string (use role ID for consistency with existing code)
+        const normalizedUser = {
+          ...data.user,
+          role: typeof data.user.role === 'string' 
+            ? data.user.role 
+            : data.user.role?.id || data.user.role?.name || null
+        };
+        setUser(normalizedUser);
       } else {
         setIsAuthenticated(false);
         setUser(null);
@@ -72,7 +91,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       if (response.ok) {
         setIsAuthenticated(true);
-        setUser({ email, role: "super_admin" });
+        // Normalize role to string (use role ID for consistency with existing code)
+        const normalizedUser = {
+          ...data.user,
+          role: typeof data.user.role === 'string' 
+            ? data.user.role 
+            : data.user.role?.id || data.user.role?.name || null
+        };
+        setUser(normalizedUser);
         return { success: true };
       } else {
         return { success: false, error: data.error || "Login failed" };
@@ -98,6 +124,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
+  // Helper function to check if user has a specific permission
+  const hasPermission = (permission: string): boolean => {
+    if (!user || !user.permissions) return false;
+    // Check for wildcard permission (super_admin)
+    if (user.permissions.includes('*')) return true;
+    // Check for specific permission
+    return user.permissions.includes(permission);
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -106,6 +141,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         user,
         login,
         logout,
+        hasPermission,
       }}
     >
       {children}

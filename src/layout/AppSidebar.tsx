@@ -8,6 +8,7 @@ import {
   BoxCubeIcon,
   CalenderIcon,
   ChevronDownIcon,
+  FolderIcon,
   GridIcon,
   HorizontaLDots,
   ListIcon,
@@ -69,6 +70,11 @@ const othersItems: NavItem[] = [
     icon: <UserCircleIcon />,
     name: "User Management",
     path: "/dashboard/user-management",
+  },
+  {
+    icon: <FolderIcon />,
+    name: "Media Library",
+    path: "/dashboard/media-library",
   },
   {
     icon: <PlugInIcon />,

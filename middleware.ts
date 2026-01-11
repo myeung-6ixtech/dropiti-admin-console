@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   
-  // Check if user is authenticated by looking for the session cookie
+  // Get session cookie
   const sessionCookie = request.cookies.get("admin_session");
-  const isAuthenticated = sessionCookie && sessionCookie.value === "authenticated";
+  const sessionToken = sessionCookie?.value;
 
-  // Define protected routes (admin routes)
+  // Define protected routes
   const protectedRoutes = [
     "/dashboard",
     "/customers",
@@ -17,25 +17,54 @@ export function middleware(request: NextRequest) {
     "/beneficiaries",
     "/settings",
     "/reports",
+    "/properties",
+    "/payment-intents",
+    "/user-management",
+    "/media-library",
   ];
 
-  // Check if the current path is a protected route
+  // Check if the current path is protected
   const isProtectedRoute = protectedRoutes.some(route => 
     pathname.startsWith(route)
   );
-  
-  // Redirect root to dashboard if authenticated
-  if (pathname === "/" && isAuthenticated) {
+
+  // If accessing protected route, validate session
+  if (isProtectedRoute) {
+    if (!sessionToken) {
+      return NextResponse.redirect(new URL("/signin", request.url));
+    }
+
+    // Validate session with database
+    try {
+      const validationResponse = await fetch(
+        new URL("/api/auth/check", request.url).toString(),
+        {
+          headers: {
+            Cookie: `admin_session=${sessionToken}`,
+          },
+        }
+      );
+
+      if (!validationResponse.ok) {
+        const response = NextResponse.redirect(new URL("/signin", request.url));
+        response.cookies.delete("admin_session");
+        return response;
+      }
+    } catch (error) {
+      console.error("Middleware validation error:", error);
+      const response = NextResponse.redirect(new URL("/signin", request.url));
+      response.cookies.delete("admin_session");
+      return response;
+    }
+  }
+
+  // If accessing signin while authenticated, redirect to dashboard
+  if (pathname === "/signin" && sessionToken) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
-  // If accessing a protected route without authentication, redirect to signin
-  if (isProtectedRoute && !isAuthenticated) {
-    return NextResponse.redirect(new URL("/signin", request.url));
-  }
-
-  // If accessing signin page while authenticated, redirect to dashboard
-  if (pathname === "/signin" && isAuthenticated) {
+  // Redirect root to dashboard if authenticated
+  if (pathname === "/" && sessionToken) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
@@ -44,14 +73,6 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - api (API routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public folder
-     */
-    "/((?!api|_next/static|_next/image|favicon.ico|public).*)",
+    "/((?!api|_next/static|_next/image|favicon.ico|images|public).*)",
   ],
-}; 
+};
