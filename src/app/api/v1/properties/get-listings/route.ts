@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     const landlord_firebase_uid = searchParams.get('landlord_firebase_uid');
 
     // Build filters
-    const filters: any = {};
+    const filters: unknown = {};
     if (minPrice) filters.minPrice = parseFloat(minPrice);
     if (maxPrice) filters.maxPrice = parseFloat(maxPrice);
     if (bedrooms) filters.minBedrooms = parseInt(bedrooms);
@@ -58,7 +58,6 @@ export async function GET(request: NextRequest) {
             rental_price
             rental_price_currency
             availability_date
-            is_public
           }
           real_estate_property_listing_aggregate(
             where: {landlord_firebase_uid: {_eq: $landlord_firebase_uid}}
@@ -90,19 +89,22 @@ export async function GET(request: NextRequest) {
     }
 
     // Transform properties to API guide format
-    const transformedData = result.data.map(transformProperty);
+    const dataArray = Array.isArray(result) ? result : result.data;
+    const transformedData = dataArray.map(transformProperty);
+    const total = Array.isArray(result) ? result.length : result.total;
+    const hasMore = Array.isArray(result) ? false : result.hasMore;
 
     return successResponse(
       transformedData,
       undefined,
       {
-        total: result.total,
+        total,
         limit,
         offset,
-        hasMore: result.hasMore,
+        hasMore,
       }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching listings:', error);
     return errorResponse(
       error.message || 'Failed to fetch listings',

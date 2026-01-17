@@ -9,7 +9,7 @@ export default function CustomerDetail() {
   const params = useParams();
   const router = useRouter();
   const [customer, setCustomer] = useState<Customer | null>(null);
-  const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
+  const [paymentMethods, setPaymentMethods] = useState<unknown[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -109,7 +109,7 @@ export default function CustomerDetail() {
           <UserIcon />
           <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">Customer not found</h3>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            The customer you're looking for doesn't exist.
+            The customer you&apos;re looking for doesn&apos;t exist.
           </p>
         </div>
       </div>

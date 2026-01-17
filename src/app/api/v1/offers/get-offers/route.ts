@@ -103,7 +103,7 @@ export async function GET(request: NextRequest) {
         hasMore: offset + limit < total,
       }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching offers:', error);
     return errorResponse(
       error.message || 'Failed to fetch offers',

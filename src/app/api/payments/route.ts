@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getBearerToken } from "@/utils/auth";
-import axios from "axios";
 import { 
   PaymentIntentCreateRequest, 
-  PaymentIntentUpdateRequest, 
-  ApiResponse 
+  PaymentIntentUpdateRequest
 } from "@/types";
 
 // Get payment details or list all payments
@@ -347,7 +345,7 @@ async function handlePaymentIntentAction(
   try {
     let endpoint: string;
     const method = "POST";
-    let body: any = {};
+    let body: unknown = {};
 
     switch (action) {
       case "capture":

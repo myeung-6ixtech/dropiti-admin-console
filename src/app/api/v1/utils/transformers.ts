@@ -26,7 +26,7 @@ export function formatLocation(address: any): string {
 /**
  * Extract amenities array from amenities object
  */
-export function extractAmenities(amenities: any): string[] {
+export function extractAmenities(amenities: unknown): string[] {
   if (Array.isArray(amenities)) {
     return amenities;
   }
@@ -83,7 +83,7 @@ export function transformProperty(property: RealEstateProperty) {
     minimumLease: 12, // Default, can be added to schema later
     availableDate: property.availability_date || '',
     createdAt: property.created_at || '',
-    updatedAt: property.updated_at || property.created_at || '',
+    updatedAt: property.created_at || '', // updated_at field not available, using created_at
   };
 }
 

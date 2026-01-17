@@ -346,44 +346,67 @@ Navigate to `/dashboard/admin/media-library` to manage all media assets.
 
 ### Restaurant Create/Edit Pages
 
-The restaurant create and edit pages demonstrate the recommended pattern:
+The restaurant create and edit pages (`/dashboard/admin/restaurant-listings/create` and `/dashboard/admin/restaurant-listings/edit/[id]`) implement a comprehensive media management system using the Media Library components.
 
-1. **Upload happens in the modal** (`MediaLibraryPickerDialog`)
-2. **Selection happens in the modal** (choose existing assets)
-3. **Reordering happens on the page** (`ImageUploadDnd` with `hideDropzone={true}`)
+**File Locations:**
+- Create page: `src/app/(main)/dashboard/admin/restaurant-listings/create/page.tsx`
+- Edit page: `src/app/(main)/dashboard/admin/restaurant-listings/edit/[id]/edit-restaurant-client.tsx`
 
-**Example from Restaurant Create:**
+#### Component Architecture
+
+The implementation uses a two-component pattern:
+
+1. **`MediaLibraryPickerDialog`** - Modal for uploading and selecting images
+2. **`ImageUploadDnd`** - Drag-and-drop reorder grid with featured image selection
+
+#### State Management
 
 ```tsx
-// State
+// Image state - array of S3 URLs
 const [uploadedImages, setUploadedImages] = useState<string[]>([]);
+
+// Modal state
 const [mediaPickerOpen, setMediaPickerOpen] = useState(false);
 
-// Handler for media library selection
-const addExistingMediaUrls = useCallback((urls: string[]) => {
-  setUploadedImages((prev) => {
-    const next = Array.from(new Set([...(prev || []), ...urls]));
-    return next;
-  });
-}, []);
+// Featured image (stored separately in formData)
+const [formData, setFormData] = useState({
+  featured_image_url: "",
+  // ... other fields
+});
+```
 
-// In JSX
+#### Component Implementation
+
+**Media Section Card:**
+
+```tsx
 <Card>
   <CardHeader>
     <CardTitle>Media</CardTitle>
+    <CardDescription>
+      Upload into the Media Library, then select images here. Drag to reorder below.
+    </CardDescription>
   </CardHeader>
-  <CardContent>
-    <Button onClick={() => setMediaPickerOpen(true)}>
-      Choose from Media Library
-    </Button>
-    
+  <CardContent className="space-y-4">
+    <div className="flex items-center justify-between gap-2">
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={() => setMediaPickerOpen(true)}
+        disabled={isSubmitting}
+      >
+        Choose from Media Library
+      </Button>
+    </div>
     <ImageUploadDnd
       images={uploadedImages}
       onImagesChange={setUploadedImages}
       featuredImageUrl={formData.featured_image_url}
       onFeaturedImageChange={handleFeaturedImageChange}
       maxImages={20}
-      hideDropzone={true}  // Upload happens in modal
+      disabled={isSubmitting}
+      hideDropzone  // Upload happens in modal, not here
     />
   </CardContent>
 </Card>
@@ -396,17 +419,183 @@ const addExistingMediaUrls = useCallback((urls: string[]) => {
 />
 ```
 
-**Workflow:**
-1. User clicks "Choose from Media Library"
-2. Modal opens with upload dropzone at top
-3. User can:
-   - Upload new images (drag & drop in modal)
-   - Search existing images
-   - Select multiple images
-   - Click "Add selected"
-4. Selected images appear in `ImageUploadDnd` reorder grid
-5. User can reorder, set featured, remove images
-6. On form submit, only S3 URLs are saved (no blob URLs)
+#### Handler Functions
+
+**Adding Selected Images:**
+
+```tsx
+const addExistingMediaUrls = useCallback((urls: string[]) => {
+  if (!urls || urls.length === 0) return;
+  
+  // Add URLs to uploadedImages array, preventing duplicates
+  setUploadedImages((prev) => {
+    const next = Array.from(new Set([...(prev || []), ...urls]));
+    return next;
+  });
+  
+  // Auto-set first image as featured if no featured image exists
+  setFormData((prev) => {
+    if (prev.featured_image_url) return prev;
+    const first = urls[0];
+    return first ? { ...prev, featured_image_url: first } : prev;
+  });
+}, []);
+```
+
+**Featured Image Change:**
+
+```tsx
+const handleFeaturedImageChange = useCallback((url: string | null) => {
+  setFormData(prev => ({ ...prev, featured_image_url: url || "" }));
+}, []);
+```
+
+#### Drag-and-Drop Reordering
+
+The `ImageUploadDnd` component implements drag-and-drop reordering using `@dnd-kit`:
+
+- **Library**: `@dnd-kit/core` and `@dnd-kit/sortable`
+- **Strategy**: `verticalListSortingStrategy` (works with grid layout)
+- **Sensors**: Pointer and keyboard sensors for accessibility
+- **Visual Feedback**: 
+  - Dragging item shows 50% opacity
+  - Ring highlight on drag target
+  - Smooth transitions during reorder
+
+**How it works:**
+1. User clicks and drags an image using the grip handle (⋮⋮ icon)
+2. Component tracks drag position using `closestCenter` collision detection
+3. On drop, `arrayMove` reorders the `imageFiles` array
+4. State updates trigger `onImagesChange` callback
+5. Parent component receives new ordered array of URLs
+
+#### Featured Image Selection
+
+- **Visual Indicator**: Star icon (⭐) appears on featured image
+- **Toggle Behavior**: Click star to set/unset featured image
+- **Auto-selection**: First image added is automatically set as featured (if none exists)
+- **State Sync**: Featured image URL is stored separately in `formData.featured_image_url`
+
+#### Image Removal
+
+- **Remove Button**: X icon appears on hover in top-right corner
+- **Cleanup**: Blob URLs are automatically revoked when removed
+- **Featured Image**: If featured image is removed, it's automatically cleared
+
+#### Form Submission & Data Persistence
+
+**On Submit (Create/Edit):**
+
+```tsx
+// Filter out blob URLs - only keep actual S3 URLs
+let finalImageUrls = [...uploadedImages];
+
+finalImageUrls = finalImageUrls.filter(url => {
+  if (!url || typeof url !== 'string') return false;
+  if (url.startsWith('blob:')) return false;  // Remove local previews
+  // Only keep valid HTTP/HTTPS URLs (S3 URLs)
+  return url.startsWith('http://') || url.startsWith('https://');
+});
+
+// Filter featured_image_url similarly
+let featuredImageUrl = formData.featured_image_url.trim() || undefined;
+if (featuredImageUrl && featuredImageUrl.startsWith('blob:')) {
+  featuredImageUrl = undefined;  // Clear invalid blob URLs
+}
+
+// Save to backend
+await restaurantV2Service.createRestaurant({
+  // ... other fields
+  featured_image_url: featuredImageUrl,
+  uploaded_images: finalImageUrls.length > 0 ? finalImageUrls : undefined,
+});
+```
+
+**On Load (Edit Page):**
+
+```tsx
+// Load existing images from restaurant data
+const existingImages = restaurantData.uploaded_images || [];
+const featuredImage = restaurantData.featured_image_url;
+
+// Include featured image in array if it exists and isn't already included
+if (featuredImage && !existingImages.includes(featuredImage)) {
+  setUploadedImages([featuredImage, ...existingImages]);
+} else {
+  setUploadedImages(existingImages);
+}
+```
+
+#### Complete User Workflow
+
+1. **Opening Media Picker:**
+   - User clicks "Choose from Media Library" button
+   - `MediaLibraryPickerDialog` modal opens
+
+2. **Uploading New Images:**
+   - User drags & drops images into modal dropzone (or clicks to select)
+   - Images upload to S3 via `/api/v1/upload/image`
+   - Upload happens sequentially to avoid overloading
+   - Modal automatically refreshes to show new images
+   - Cache invalidation ensures new images appear immediately
+
+3. **Selecting Existing Images:**
+   - User can search media assets (filename, S3 key, hash)
+   - Search is debounced (300ms delay)
+   - User clicks images to select (multi-select with visual indicators)
+   - Selected count shown: "Selected: 3 / 20"
+   - Pagination available (50 items per page)
+
+4. **Adding Selected Images:**
+   - User clicks "Add selected" button
+   - `onSelect` callback fires with array of `public_url` strings
+   - Images added to `uploadedImages` state (duplicates prevented)
+   - Modal closes automatically
+   - First image auto-set as featured (if none exists)
+
+5. **Managing Images on Page:**
+   - Images appear in `ImageUploadDnd` grid (2-4 columns responsive)
+   - User can drag images to reorder (grip handle: ⋮⋮)
+   - User can set featured image (star icon: ⭐)
+   - User can remove images (X icon on hover)
+   - Grid shows count: "5 images (drag to reorder)"
+
+6. **Saving Form:**
+   - On submit, blob URLs are filtered out
+   - Only S3 URLs are saved to database
+   - `uploaded_images` array and `featured_image_url` saved separately
+   - Backend receives clean array of S3 URLs
+
+#### Key Features
+
+- **No Duplicate Uploads**: Content-addressable storage prevents duplicates
+- **Automatic Deduplication**: Same image hash = same S3 key = no re-upload
+- **Blob URL Handling**: Local previews (blob URLs) are automatically cleaned up
+- **State Reconciliation**: Component syncs with parent `images` prop changes
+- **Featured Image Sync**: Featured image automatically cleared if removed from array
+- **Responsive Grid**: 2 columns (mobile), 3 (tablet), 4 (desktop)
+- **Accessibility**: Keyboard navigation support via `@dnd-kit` sensors
+- **Loading States**: Disabled during form submission
+- **Error Handling**: Toast notifications for upload/search errors
+
+#### Component Props Summary
+
+**ImageUploadDnd:**
+- `images: string[]` - Array of S3 URLs
+- `onImagesChange: (images: string[]) => void` - Callback when images change
+- `featuredImageUrl?: string` - Currently featured image URL
+- `onFeaturedImageChange?: (url: string | null) => void` - Featured image callback
+- `maxImages?: number` - Maximum images (default: 20)
+- `disabled?: boolean` - Disable interactions
+- `hideDropzone?: boolean` - Hide upload UI (show only reorder grid)
+
+**MediaLibraryPickerDialog:**
+- `open: boolean` - Modal open state
+- `onOpenChange: (open: boolean) => void` - Modal state callback
+- `onSelect: (selectedUrls: string[]) => void` - Selection callback
+- `maxSelect?: number` - Maximum selectable items (default: unlimited)
+- `allowUpload?: boolean` - Show upload dropzone (default: true)
+- `pageSize?: number` - Items per page (default: 50)
 
 ---
 

@@ -9,7 +9,7 @@ export async function GET() {
       status: 200,
       statusText: 'OK'
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
     return Response.json(null, {
       status: error.code,
       statusText: error.message

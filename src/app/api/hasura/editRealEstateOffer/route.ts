@@ -80,7 +80,7 @@ export async function POST(request: Request) {
           statusText: 'OK'
         }
       )
-    } catch (error: any) {
+    } catch (error: unknown) {
       return Response.json(null, {
         status: error.code,
         statusText: error.message

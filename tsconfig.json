@@ -19,7 +19,10 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@dropiti/base/utils": ["./src/lib/dropiti-stubs/base-utils.ts"],
+      "@dropiti/sdk": ["./src/lib/dropiti-stubs/sdk.ts"],
+      "@dropiti/sdk/enums": ["./src/lib/dropiti-stubs/sdk-enums.ts"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],

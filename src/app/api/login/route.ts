@@ -29,12 +29,11 @@ function generateToken(): string {
 function getClientIP(request: NextRequest): string {
   return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 
          request.headers.get('x-real-ip') || 
-         request.ip ||
          'unknown';
 }
 
 // Helper: Check if user is rate limited
-async function checkRateLimit(email: string): Promise<{ limited: boolean; reason?: string }> {
+async function checkRateLimit(): Promise<{ limited: boolean; reason?: string }> {
   try {
     const sinceTime = new Date(Date.now() - LOCKOUT_DURATION_MINUTES * 60 * 1000).toISOString();
     
@@ -206,6 +205,10 @@ export async function POST(request: NextRequest) {
           name
           phone
           avatar
+          address
+          business_type
+          company_name
+          description
           status
           role_id
           permissions

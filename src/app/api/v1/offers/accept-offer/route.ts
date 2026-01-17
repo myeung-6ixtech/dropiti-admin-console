@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     const { sdk } = getHasuraGraphqlSDK();
 
     // Update offer status to ACCEPTED
-    const updateOfferRes = await sdk.updateRealEstateOfferStatus({
+    await sdk.updateRealEstateOfferStatus({
       offerId: parseInt(offerId),
       offerStatus: RealEstateOfferStatus.ACCEPTED,
     });
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
       undefined,
       200
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error accepting offer:', error);
     return errorResponse(
       error.message || 'Failed to accept offer',

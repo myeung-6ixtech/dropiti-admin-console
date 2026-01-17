@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     const count = result.real_estate_property_listing_aggregate?.aggregate?.count || 0;
 
     return successResponse({ count });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching property count:', error);
     return errorResponse(
       error.message || 'Failed to fetch property count',

@@ -45,7 +45,7 @@ export default function MediaLibrary() {
       } else {
         showToast('error', data.error || 'Failed to load media assets');
       }
-    } catch (error) {
+    } catch {
       showToast('error', 'Failed to load media assets');
     } finally {
       setLoading(false);
@@ -83,7 +83,7 @@ export default function MediaLibrary() {
         } else {
           showToast('error', `Failed to upload: ${file.name} - ${data.error}`);
         }
-      } catch (error) {
+      } catch {
         showToast('error', `Error uploading: ${file.name}`);
       }
     }

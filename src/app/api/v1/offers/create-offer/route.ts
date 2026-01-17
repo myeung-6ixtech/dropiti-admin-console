@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
       undefined,
       201
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error creating offer:', error);
     return errorResponse(
       error.message || 'Failed to create offer',

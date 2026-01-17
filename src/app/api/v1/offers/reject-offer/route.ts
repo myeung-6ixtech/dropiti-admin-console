@@ -1,7 +1,6 @@
 import { NextRequest } from 'next/server';
 import { getHasuraGraphqlSDK } from '@dropiti/sdk';
 import { RealEstateOfferAction, RealEstateOfferStatus } from '@dropiti/sdk/enums';
-import { executeQuery } from '@/app/graphql/client';
 import { successResponse, errorResponse } from '../../utils/response';
 
 export async function POST(request: NextRequest) {
@@ -46,7 +45,7 @@ export async function POST(request: NextRequest) {
     const { sdk } = getHasuraGraphqlSDK();
 
     // Update offer status to REJECTED
-    const updateOfferRes = await sdk.updateRealEstateOfferStatus({
+    await await sdk.updateRealEstateOfferStatus({
       offerId: parseInt(offerId),
       offerStatus: RealEstateOfferStatus.REJECTED,
     });
@@ -75,7 +74,7 @@ export async function POST(request: NextRequest) {
       },
       'Offer rejected successfully'
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error rejecting offer:', error);
     return errorResponse(
       error.message || 'Failed to reject offer',

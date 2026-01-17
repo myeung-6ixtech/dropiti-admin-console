@@ -1,7 +1,40 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
-export async function GET(request: NextRequest) {
+// Helper: Get role information
+async function getRoleInfo(roleId: string) {
+  try {
+    const query = `
+      query GetRole($id: String!) {
+        real_estate_admin_roles_by_pk(id: $id) {
+          id
+          name
+          permissions
+        }
+      }
+    `;
+
+    const response = await fetch(process.env.NEXT_PUBLIC_HASURA_GRAPHQL_API_URL!, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-hasura-admin-secret': process.env.NEXT_PUBLIC_HASURA_GRAPHQL_ADMIN_SECRET!,
+      },
+      body: JSON.stringify({
+        query,
+        variables: { id: roleId }
+      }),
+    });
+
+    const data = await response.json();
+    return data.data?.real_estate_admin_roles_by_pk || null;
+  } catch (error) {
+    console.error('Failed to get role info:', error);
+    return null;
+  }
+}
+
+export async function GET() {
   try {
     const cookieStore = await cookies();
     const sessionToken = cookieStore.get("admin_session")?.value;
@@ -33,15 +66,14 @@ export async function GET(request: NextRequest) {
             name
             phone
             avatar
+            address
+            business_type
+            company_name
+            description
             status
             role_id
             permissions
             account_type
-            role {
-              id
-              name
-              permissions
-            }
           }
         }
       }
@@ -73,6 +105,9 @@ export async function GET(request: NextRequest) {
 
     const session = sessions[0];
     const user = session.user;
+
+    // Get role information
+    const role = user.role_id ? await getRoleInfo(user.role_id) : null;
 
     // Check if user is still active
     if (user.status !== 'active') {
@@ -107,7 +142,7 @@ export async function GET(request: NextRequest) {
 
     // Merge permissions
     const allPermissions = [
-      ...(user.role?.permissions || []),
+      ...(role?.permissions || []),
       ...(user.permissions || [])
     ];
     const uniquePermissions = [...new Set(allPermissions)];
@@ -120,7 +155,7 @@ export async function GET(request: NextRequest) {
         name: user.name,
         phone: user.phone,
         avatar: user.avatar,
-        role: user.role ? { id: user.role.id, name: user.role.name } : null,
+        role: role ? { id: role.id, name: role.name } : null,
         permissions: uniquePermissions,
       }
     });

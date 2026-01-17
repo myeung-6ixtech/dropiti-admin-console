@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
       undefined,
       201
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error uploading files:', error);
     return errorResponse(
       error.message || 'Failed to upload files',
@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const filename = searchParams.get('filename');
     const category = searchParams.get('category') || 'images';
-    const contentType = searchParams.get('contentType') || 'image/jpeg';
+    // const contentType = searchParams.get('contentType') || 'image/jpeg';
 
     if (!filename) {
       return errorResponse('filename is required', undefined, 400);
@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
       key: `${category}/${Date.now()}-${filename}`,
       fields: {}, // S3 upload fields
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error generating presigned URL:', error);
     return errorResponse(
       error.message || 'Failed to generate presigned URL',

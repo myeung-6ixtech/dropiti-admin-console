@@ -1,75 +1,77 @@
-import { NextRequest } from 'next/server';
-import { RealEstateUserService } from '@/app/graphql/services/realEstateUserService';
-import { executeQuery } from '@/app/graphql/client';
-import { successResponse, errorResponse } from '../../utils/response';
+import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const firebase_uid = searchParams.get('firebase_uid');
     const id = searchParams.get('id');
 
-    const userId = firebase_uid || id;
-
-    if (!userId) {
-      return errorResponse('firebase_uid or id is required', undefined, 400);
+    if (!id) {
+      return NextResponse.json(
+        { success: false, error: "User ID is required" },
+        { status: 400 }
+      );
     }
 
-    const user = await RealEstateUserService.getRealEstateUserByUid(userId);
-
-    if (!user) {
-      return errorResponse('User not found', undefined, 404);
-    }
-
-    // Get additional user stats (rating, review_count) - placeholder for now
-    // In a real implementation, you'd query reviews to calculate these
-    const GET_USER_STATS = `
-      query GetUserStats($firebase_uid: String!) {
-        real_estate_review_aggregate(
-          where: {reviewee_firebase_uid: {_eq: $firebase_uid}}
-        ) {
-          aggregate {
-            count
-            avg {
-              rating
-            }
-          }
+    const query = `
+      query GetAdministratorUser($id: uuid!) {
+        real_estate_administrator_users_by_pk(id: $id) {
+          id
+          email
+          name
+          phone
+          avatar
+          address
+          business_type
+          company_name
+          description
+          status
+          role_id
+          permissions
+          created_at
+          updated_at
+          last_login_at
+          email_verified_at
         }
       }
     `;
 
-    let rating = 0;
-    let review_count = 0;
+    const response = await fetch(process.env.NEXT_PUBLIC_HASURA_GRAPHQL_API_URL!, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-hasura-admin-secret': process.env.NEXT_PUBLIC_HASURA_GRAPHQL_ADMIN_SECRET!,
+      },
+      body: JSON.stringify({
+        query,
+        variables: { id },
+      }),
+    });
 
-    try {
-      const statsResult = await executeQuery(GET_USER_STATS, { firebase_uid: userId });
-      review_count = statsResult.real_estate_review_aggregate?.aggregate?.count || 0;
-      rating = statsResult.real_estate_review_aggregate?.aggregate?.avg?.rating || 0;
-    } catch (error) {
-      // Stats query failed, use defaults
-      console.warn('Failed to fetch user stats:', error);
+    const data = await response.json();
+    
+    if (data.errors) {
+      return NextResponse.json(
+        { success: false, error: data.errors[0]?.message },
+        { status: 500 }
+      );
     }
 
-    return successResponse({
-      uuid: user.firebase_uid,
-      firebase_uid: user.firebase_uid,
-      display_name: user.display_name,
-      email: user.email,
-      photo_url: user.photo_url || '',
-      phone_number: user.phone_number || '',
-      location: '', // Can be added to schema
-      about: '', // Can be added to schema
-      verified: true, // Can be added to schema
-      rating: Math.round(rating * 10) / 10, // Round to 1 decimal
-      review_count,
+    if (!data.data?.real_estate_administrator_users_by_pk) {
+      return NextResponse.json(
+        { success: false, error: "User not found" },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: data.data.real_estate_administrator_users_by_pk,
     });
-  } catch (error: any) {
-    console.error('Error fetching user:', error);
-    return errorResponse(
-      error.message || 'Failed to fetch user',
-      undefined,
-      500
+  } catch (error: unknown) {
+    console.error('Get user error:', error);
+    return NextResponse.json(
+      { success: false, error: error.message || 'Failed to get user' },
+      { status: 500 }
     );
   }
 }
-

@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
       offer,
       negotiationState,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching negotiation state:', error);
     return errorResponse(
       error.message || 'Failed to fetch negotiation state',

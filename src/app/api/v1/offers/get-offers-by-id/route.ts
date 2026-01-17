@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
     });
 
     return successResponse(offersResult.real_estate_offer || []);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching offers by ID:', error);
     return errorResponse(
       error.message || 'Failed to fetch offers',

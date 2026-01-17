@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
       cancelled_at: responseData.updated_at || new Date().toISOString(),
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Payment cancellation error:", error);
     return NextResponse.json(
       { 
@@ -174,7 +174,7 @@ export async function GET(request: NextRequest) {
         : `Payment cannot be cancelled in '${paymentData.status}' status`,
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Payment cancellation check error:", error);
     return NextResponse.json(
       { 

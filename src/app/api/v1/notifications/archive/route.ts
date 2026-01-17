@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
-import { executeMutation } from '@/app/graphql/client';
-import { successResponse, errorResponse } from '../utils/response';
+// import { executeMutation } from '@/app/graphql/client';
+import { successResponse, errorResponse } from '../../utils/response';
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
       { archived: true },
       'Notification archived'
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error archiving notification:', error);
     return errorResponse(
       error.message || 'Failed to archive notification',

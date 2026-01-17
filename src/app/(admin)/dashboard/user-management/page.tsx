@@ -1,26 +1,49 @@
 "use client";
-import React, { useState } from "react";
-import { useAuth } from "@/context/AuthContext";
+import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Button from "@/components/ui/button/Button";
 import { PencilIcon, TrashBinIcon, UserIcon } from "@/icons";
 import { User } from "@/types";
+import { useToast } from "@/context/ToastContext";
 
 export default function UserManagement() {
-  const { user: currentUser } = useAuth();
-  const [users, setUsers] = useState<User[]>([
-    {
-      id: "1",
-      email: process.env.NEXT_PUBLIC_ROOT_EMAIL || "muser.yeung@dropiti.com",
-      role: "super_admin",
-      name: "Super Admin",
-      status: "active",
-      createdAt: "2024-01-01",
-      lastLogin: new Date().toISOString().split('T')[0],
-    },
-  ]);
-
+  const router = useRouter();
+  const { showToast } = useToast();
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/v1/users?limit=100&offset=0');
+      const result = await response.json();
+      
+      if (result.success) {
+        setUsers(result.data.map((user: unknown) => ({
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role_id || user.role?.id || 'viewer',
+          status: user.status,
+          createdAt: user.created_at,
+          lastLogin: user.last_login_at,
+        })));
+      } else {
+        showToast('error', result.error || 'Failed to fetch users');
+      }
+    } catch (error) {
+      console.error('Failed to fetch users:', error);
+      showToast('error', 'Failed to load users');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleDeleteUser = (user: User) => {
     if (user.role === "super_admin") {
@@ -31,11 +54,29 @@ export default function UserManagement() {
     setIsDeleteModalOpen(true);
   };
 
-  const confirmDelete = () => {
-    if (selectedUser && selectedUser.role !== "super_admin") {
-      setUsers(users.filter(u => u.id !== selectedUser.id));
-      setIsDeleteModalOpen(false);
-      setSelectedUser(null);
+  const confirmDelete = async () => {
+    if (!selectedUser || selectedUser.role === "super_admin") {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/v1/users/delete-user?id=${selectedUser.id}`, {
+        method: 'DELETE',
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        showToast('success', 'User deleted successfully');
+        setUsers(users.filter(u => u.id !== selectedUser.id));
+        setIsDeleteModalOpen(false);
+        setSelectedUser(null);
+      } else {
+        showToast('error', result.error || 'Failed to delete user');
+      }
+    } catch (error) {
+      console.error('Failed to delete user:', error);
+      showToast('error', 'Failed to delete user');
     }
   };
 
@@ -52,13 +93,25 @@ export default function UserManagement() {
   };
 
   const getRoleBadge = (role: string) => {
+    const roleNames: Record<string, string> = {
+      'super_admin': 'Super Admin',
+      'system_admin': 'System Admin',
+      'user_admin': 'User Admin',
+      'content_admin': 'Content Admin',
+      'analytics_admin': 'Analytics Admin',
+      'support_admin': 'Support Admin',
+      'viewer': 'Viewer',
+    };
+
+    const displayName = roleNames[role] || role;
+    
     return (
       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
         role === "super_admin" 
           ? "bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400"
           : "bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400"
       }`}>
-        {role === "super_admin" ? "Super Admin" : role}
+        {displayName}
       </span>
     );
   };
@@ -89,32 +142,40 @@ export default function UserManagement() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 dark:bg-gray-700">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  User
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Role
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Created
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Last Login
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-              {users.map((user) => (
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-500 mx-auto"></div>
+              <p className="mt-4 text-gray-600 dark:text-gray-400">Loading users...</p>
+            </div>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 dark:bg-gray-700">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    User
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Role
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Created
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Last Login
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                {users.map((user) => (
                 <tr key={user.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
@@ -142,7 +203,7 @@ export default function UserManagement() {
                     {getStatusBadge(user.status)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                    {new Date(user.createdAt).toLocaleDateString()}
+                    {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : "N/A"}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                     {user.lastLogin ? new Date(user.lastLogin).toLocaleDateString() : "Never"}
@@ -150,10 +211,11 @@ export default function UserManagement() {
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex items-center gap-2">
                       <button
+                        onClick={() => router.push(`/dashboard/user-management/edit/${user.id}`)}
                         className="text-brand-600 hover:text-brand-900 dark:text-brand-400 dark:hover:text-brand-300"
                         title="Edit user"
                       >
-                                                 <PencilIcon />
+                        <PencilIcon />
                       </button>
                       {user.role !== "super_admin" && (
                         <button
@@ -161,18 +223,19 @@ export default function UserManagement() {
                           className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
                           title="Delete user"
                         >
-                                                     <TrashBinIcon />
+                          <TrashBinIcon />
                         </button>
                       )}
                     </div>
                   </td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
 
-        {users.length === 0 && (
+        {!loading && users.length === 0 && (
           <div className="text-center py-12">
                          <UserIcon />
             <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">No users</h3>

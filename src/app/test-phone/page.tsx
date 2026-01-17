@@ -47,7 +47,7 @@ export default function TestPhonePage() {
           addResult('✅ phone_number field exists in real_estate_property_listing');
           addResult(`Sample data: ${JSON.stringify(result.data, null, 2)}`);
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         addResult('❌ phone_number field does not exist in real_estate_property_listing');
         addResult(`Error: ${error.message}`);
       }
@@ -83,7 +83,7 @@ export default function TestPhonePage() {
           addResult('✅ phone_number field exists in real_estate_user');
           addResult(`Sample data: ${JSON.stringify(result.data, null, 2)}`);
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         addResult('❌ phone_number field does not exist in real_estate_user');
         addResult(`Error: ${error.message}`);
       }
@@ -130,7 +130,7 @@ export default function TestPhonePage() {
           
           if (propertyType) {
             addResult('✅ Found real_estate_property_listing type');
-            const phoneField = propertyType.fields.find((field: any) => field.name === 'phone_number');
+            const phoneField = propertyType.fields.find((field: string) => field.name === 'phone_number');
             if (phoneField) {
               addResult('✅ phone_number field exists in schema');
               addResult(`Field type: ${phoneField.type.name}`);
@@ -143,12 +143,12 @@ export default function TestPhonePage() {
           }
         }
         
-      } catch (error: any) {
+      } catch (error: unknown) {
         addResult('❌ Failed to get schema information');
         addResult(`Error: ${error.message}`);
       }
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       addResult(`Test failed: ${error.message}`);
     } finally {
       setLoading(false);

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getBearerToken } from "@/utils/auth";
-import { CustomerAddress, CustomerData, ApiResponse } from "@/types";
+import { CustomerData } from "@/types";
 
 // Handle both list and single customer requests
 export async function GET(request: NextRequest) {
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Prepare customer payload for Airwallex
-    const customerPayload: any = {
+    const customerPayload: unknown = {
       request_id: `req_${Date.now()}`,
       merchant_customer_id: body.merchant_customer_id.trim(),
       first_name: body.first_name.trim(),
@@ -193,7 +193,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Prepare update payload for Airwallex
-    const updatePayload: any = {
+    const updatePayload: Record<string, unknown> = {
       request_id: `req_${Date.now()}`,
     };
 

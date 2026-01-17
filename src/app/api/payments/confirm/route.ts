@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Prepare the request body for Airwallex - simplified pass-through
-    const airwallexPayload: any = {
+    const airwallexPayload: unknown = {
       request_id: body.request_id,
       payment_method: body.payment_method
     };

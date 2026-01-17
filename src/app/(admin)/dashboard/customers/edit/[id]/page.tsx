@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Button from "@/components/ui/button/Button";
-import { ChevronLeftIcon, UserIcon, MailIcon, BoxIcon } from "@/icons";
+import { ChevronLeftIcon, UserIcon, MailIcon } from "@/icons";
 import { Customer } from "@/types";
 
 export default function EditCustomer() {
@@ -80,7 +80,7 @@ export default function EditCustomer() {
 
     try {
       // Prepare update payload
-      const updatePayload: any = {
+      const updatePayload: Record<string, unknown> = {
         first_name: formData.first_name,
         last_name: formData.last_name,
         email: formData.email,

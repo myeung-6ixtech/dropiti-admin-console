@@ -12,6 +12,12 @@ export interface RentalSpaceOption {
   description?: string;
 }
 
+export interface ResidentialTypeOption {
+  value: string;
+  label: string;
+  description?: string;
+}
+
 export interface AreaUnitOption {
   value: string;
   label: string;
@@ -68,6 +74,7 @@ export interface DistrictOption {
 
 export interface PropertyFieldConfig {
   propertyTypes: PropertyTypeOption[];
+  residentialTypes: ResidentialTypeOption[];
   rentalSpaces: RentalSpaceOption[];
   areaUnits: AreaUnitOption[];
   furnishedOptions: FurnishedOption[];
@@ -81,26 +88,22 @@ export interface PropertyFieldConfig {
 // Default configuration with standardized values
 export const DEFAULT_PROPERTY_CONFIG: PropertyFieldConfig = {
   propertyTypes: [
-    { value: 'apartment', label: 'Apartment', category: 'residential' },
-    { value: 'condominium', label: 'Condominium', category: 'residential' },
-    { value: 'house', label: 'House', category: 'residential' },
-    { value: 'townhouse', label: 'Townhouse', category: 'residential' },
-    { value: 'villa', label: 'Villa', category: 'residential' },
-    { value: 'studio', label: 'Studio', category: 'residential' },
-    { value: 'penthouse', label: 'Penthouse', category: 'residential' },
-    { value: 'office', label: 'Office', category: 'commercial' },
-    { value: 'retail', label: 'Retail Space', category: 'commercial' },
-    { value: 'warehouse', label: 'Warehouse', category: 'industrial' },
-    { value: 'land', label: 'Land', category: 'land' },
+    { value: 'residential', label: 'Residential', category: 'residential' },
+    { value: 'commercial', label: 'Commercial', category: 'commercial' },
+  ],
+
+  residentialTypes: [
+    { value: 'serviced-apartment', label: 'Serviced Apartment', description: 'Apartment with hotel-like services' },
+    { value: 'village-house', label: 'Village House', description: 'Standalone house in village areas' },
+    { value: 'apartment', label: 'Apartment', description: 'Standard residential unit' },
+    { value: 'condo', label: 'Condominium', description: 'Property in condo complex' },
   ],
 
   rentalSpaces: [
-    { value: 'entire_property', label: 'Entire Property' },
-    { value: 'private_room', label: 'Private Room' },
-    { value: 'shared_room', label: 'Shared Room' },
-    { value: 'studio_unit', label: 'Studio Unit' },
-    { value: 'serviced_apartment', label: 'Serviced Apartment' },
-    { value: 'co_working_space', label: 'Co-working Space' },
+    { value: 'entire-apartment', label: 'Entire Apartment', description: 'Complete apartment with private bathroom and kitchen' },
+    { value: 'partial-apartment', label: 'Partial Apartment', description: 'Own room, shared common areas' },
+    { value: 'shared-space', label: 'Shared Space', description: 'Shared room or space with others' },
+    { value: 'private-room', label: 'Private Room', description: 'Private room, shared common areas' },
   ],
 
   areaUnits: [
@@ -112,21 +115,16 @@ export const DEFAULT_PROPERTY_CONFIG: PropertyFieldConfig = {
   ],
 
   furnishedOptions: [
-    { value: 'none', label: 'Unfurnished', description: 'No furniture provided' },
-    { value: 'partial', label: 'Partially Furnished', description: 'Basic furniture included' },
-    { value: 'full', label: 'Fully Furnished', description: 'Complete furniture package' },
-    { value: 'luxury', label: 'Luxury Furnished', description: 'High-end furniture and appliances' },
+    { value: 'non-furnished', label: 'Non-Furnished', description: 'Empty unit' },
+    { value: 'partially', label: 'Partially Furnished', description: 'Some furniture and basic appliances' },
+    { value: 'fully', label: 'Fully Furnished', description: 'All furniture and appliances' },
   ],
 
   currencies: [
-    { value: '$', label: 'US Dollar', symbol: '$', code: 'USD' },
-    { value: '€', label: 'Euro', symbol: '€', code: 'EUR' },
-    { value: '£', label: 'British Pound', symbol: '£', code: 'GBP' },
-    { value: '¥', label: 'Japanese Yen', symbol: '¥', code: 'JPY' },
-    { value: 'HK$', label: 'Hong Kong Dollar', symbol: 'HK$', code: 'HKD' },
-    { value: 'S$', label: 'Singapore Dollar', symbol: 'S$', code: 'SGD' },
-    { value: 'A$', label: 'Australian Dollar', symbol: 'A$', code: 'AUD' },
-    { value: 'C$', label: 'Canadian Dollar', symbol: 'C$', code: 'CAD' },
+    { value: 'HKD', label: 'Hong Kong Dollar', symbol: 'HK$', code: 'HKD' },
+    { value: 'USD', label: 'US Dollar', symbol: '$', code: 'USD' },
+    { value: 'EUR', label: 'Euro', symbol: '€', code: 'EUR' },
+    { value: 'GBP', label: 'British Pound', symbol: '£', code: 'GBP' },
   ],
 
   amenities: {
@@ -181,42 +179,43 @@ export const DEFAULT_PROPERTY_CONFIG: PropertyFieldConfig = {
   },
 
   countries: [
-    { value: 'united_states', label: 'United States', code: 'US', phoneCode: '+1' },
-    { value: 'united_kingdom', label: 'United Kingdom', code: 'GB', phoneCode: '+44' },
-    { value: 'germany', label: 'Germany', code: 'DE', phoneCode: '+49' },
-    { value: 'france', label: 'France', code: 'FR', phoneCode: '+33' },
-    { value: 'japan', label: 'Japan', code: 'JP', phoneCode: '+81' },
-    { value: 'hong_kong', label: 'Hong Kong', code: 'HK', phoneCode: '+852' },
-    { value: 'singapore', label: 'Singapore', code: 'SG', phoneCode: '+65' },
-    { value: 'australia', label: 'Australia', code: 'AU', phoneCode: '+61' },
-    { value: 'canada', label: 'Canada', code: 'CA', phoneCode: '+1' },
+    { value: 'HK', label: 'Hong Kong', code: 'HK', phoneCode: '+852' },
+    { value: 'MO', label: 'Macau', code: 'MO', phoneCode: '+853' },
   ],
 
-  states: [
-    // US States
-    { value: 'california', label: 'California', countryCode: 'US' },
-    { value: 'new_york', label: 'New York', countryCode: 'US' },
-    { value: 'texas', label: 'Texas', countryCode: 'US' },
-    { value: 'florida', label: 'Florida', countryCode: 'US' },
-    { value: 'washington', label: 'Washington', countryCode: 'US' },
-    // UK Regions
-    { value: 'england', label: 'England', countryCode: 'GB' },
-    { value: 'scotland', label: 'Scotland', countryCode: 'GB' },
-    { value: 'wales', label: 'Wales', countryCode: 'GB' },
-    { value: 'northern_ireland', label: 'Northern Ireland', countryCode: 'GB' },
-  ],
+  states: [],
 
   districts: [
-    // California Districts
-    { value: 'los_angeles', label: 'Los Angeles', stateValue: 'california' },
-    { value: 'san_francisco', label: 'San Francisco', stateValue: 'california' },
-    { value: 'san_diego', label: 'San Diego', stateValue: 'california' },
-    // New York Districts
-    { value: 'manhattan', label: 'Manhattan', stateValue: 'new_york' },
-    { value: 'brooklyn', label: 'Brooklyn', stateValue: 'new_york' },
-    { value: 'queens', label: 'Queens', stateValue: 'new_york' },
-    { value: 'bronx', label: 'Bronx', stateValue: 'new_york' },
-    { value: 'staten_island', label: 'Staten Island', stateValue: 'new_york' },
+    // Hong Kong - Hong Kong Island
+    { value: 'central-western', label: 'Central and Western', stateValue: 'HK' },
+    { value: 'eastern', label: 'Eastern', stateValue: 'HK' },
+    { value: 'southern', label: 'Southern', stateValue: 'HK' },
+    { value: 'wan-chai', label: 'Wan Chai', stateValue: 'HK' },
+    // Hong Kong - Kowloon
+    { value: 'sham-shui-po', label: 'Sham Shui Po', stateValue: 'HK' },
+    { value: 'kowloon-city', label: 'Kowloon City', stateValue: 'HK' },
+    { value: 'kwun-tong', label: 'Kwun Tong', stateValue: 'HK' },
+    { value: 'wong-tai-sin', label: 'Wong Tai Sin', stateValue: 'HK' },
+    { value: 'yau-tsim-mong', label: 'Yau Tsim Mong', stateValue: 'HK' },
+    // Hong Kong - New Territories
+    { value: 'islands', label: 'Islands', stateValue: 'HK' },
+    { value: 'kwai-tsing', label: 'Kwai Tsing', stateValue: 'HK' },
+    { value: 'north', label: 'North', stateValue: 'HK' },
+    { value: 'sai-kung', label: 'Sai Kung', stateValue: 'HK' },
+    { value: 'sha-tin', label: 'Sha Tin', stateValue: 'HK' },
+    { value: 'tai-po', label: 'Tai Po', stateValue: 'HK' },
+    { value: 'tsuen-wan', label: 'Tsuen Wan', stateValue: 'HK' },
+    { value: 'tuen-mun', label: 'Tuen Mun', stateValue: 'HK' },
+    { value: 'yuen-long', label: 'Yuen Long', stateValue: 'HK' },
+    // Macau
+    { value: 'nossa-senhora-fatima', label: 'Nossa Senhora de Fátima', stateValue: 'MO' },
+    { value: 'santo-antonio', label: 'Santo António', stateValue: 'MO' },
+    { value: 'se', label: 'Sé', stateValue: 'MO' },
+    { value: 'sao-lazaro', label: 'São Lázaro', stateValue: 'MO' },
+    { value: 'sao-lourenco', label: 'São Lourenço', stateValue: 'MO' },
+    { value: 'taipa', label: 'Taipa', stateValue: 'MO' },
+    { value: 'coloane', label: 'Coloane', stateValue: 'MO' },
+    { value: 'cotai', label: 'Cotai', stateValue: 'MO' },
   ],
 };
 

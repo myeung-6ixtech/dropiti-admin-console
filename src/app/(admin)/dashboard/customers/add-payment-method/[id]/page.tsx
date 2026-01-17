@@ -116,7 +116,7 @@ export default function AddCustomerPaymentMethod() {
         throw new Error(errorData.error || 'Failed to generate client secret');
       }
       
-      const { client_secret } = await clientSecretResponse.json();
+      await clientSecretResponse.json();
       console.log('Client secret generated successfully');
       
       // Step 2: Create PaymentConsent using SDK
@@ -224,7 +224,7 @@ export default function AddCustomerPaymentMethod() {
           <UserIcon />
           <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">Customer not found</h3>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            The customer you're looking for doesn't exist.
+            The customer you&apos;re looking for doesn&apos;t exist.
           </p>
         </div>
       </div>
@@ -479,7 +479,7 @@ export default function AddCustomerPaymentMethod() {
               Secure Payment Processing
             </h3>
             <p className="text-xs text-blue-700 dark:text-blue-300">
-              All payment information is securely processed using Airwallex's embedded elements. 
+              All payment information is securely processed using Airwallex&apos;s embedded elements. 
               Card details are never stored on our servers and are tokenized for security.
             </p>
           </div>

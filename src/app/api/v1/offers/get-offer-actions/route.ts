@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     const result = await executeQuery(GET_OFFER_ACTIONS, { offerId: parseInt(offerId) });
 
     return successResponse(result.real_estate_offer_by_action || []);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching offer actions:', error);
     return errorResponse(
       error.message || 'Failed to fetch offer actions',

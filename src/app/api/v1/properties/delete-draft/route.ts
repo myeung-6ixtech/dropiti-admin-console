@@ -13,22 +13,20 @@ export async function DELETE(request: NextRequest) {
 
     const DELETE_PROPERTY = `
       mutation DeleteProperty($propertyUuid: uuid!) {
-        update_real_estate_property_listing(
+        delete_real_estate_property_listing(
           where: {property_uuid: {_eq: $propertyUuid}}
-          _set: {is_public: false}
         ) {
           affected_rows
         }
       }
     `;
 
-    // Note: In a real implementation, you might want to actually delete
-    // For now, we'll just mark as not public (soft delete)
+    // Actually delete the property (hard delete)
     const result = await executeMutation(DELETE_PROPERTY, {
       propertyUuid: property_uuid,
     });
 
-    if (result.update_real_estate_property_listing?.affected_rows === 0) {
+    if (result.delete_real_estate_property_listing?.affected_rows === 0) {
       return errorResponse('Draft not found', undefined, 404);
     }
 
@@ -36,7 +34,7 @@ export async function DELETE(request: NextRequest) {
       { deleted: true },
       'Draft deleted successfully'
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error deleting draft:', error);
     return errorResponse(
       error.message || 'Failed to delete draft',

@@ -24,8 +24,7 @@ export async function PUT(request: NextRequest) {
     if (updates.price !== undefined) propertyUpdates.rental_price = updates.price;
     if (updates.bedrooms !== undefined) propertyUpdates.num_bedroom = updates.bedrooms;
     if (updates.bathrooms !== undefined) propertyUpdates.num_bathroom = updates.bathrooms;
-    if (updates.status === 'published') propertyUpdates.is_public = true;
-    if (updates.status === 'draft') propertyUpdates.is_public = false;
+    // Note: status updates (published/draft) ignored as is_public field not available in schema
     if (updates.photos !== undefined) {
       propertyUpdates.uploaded_images = updates.photos;
       if (updates.photos.length > 0) {
@@ -51,7 +50,7 @@ export async function PUT(request: NextRequest) {
       updatedProperty,
       'Property updated successfully'
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error updating property:', error);
     return errorResponse(
       error.message || 'Failed to update property',

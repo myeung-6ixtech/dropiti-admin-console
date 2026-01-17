@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
       },
       'Counter offer created successfully'
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error creating counter offer:', error);
     return errorResponse(
       error.message || 'Failed to create counter offer',

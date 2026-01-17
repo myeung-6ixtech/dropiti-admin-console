@@ -4,10 +4,6 @@ import { useParams, useRouter } from 'next/navigation';
 import { RealEstatePropertyServiceByUuid } from '@/app/graphql/services/realEstatePropertyServiceByUuid';
 import { RealEstateProperty } from '@/app/graphql/types';
 import Button from '@/components/ui/button/Button';
-import { useModal } from '@/hooks/useModal';
-import { Modal } from '@/components/ui/modal';
-import Input from '@/components/form/input/InputField';
-import Label from '@/components/form/Label';
 
 // Property Basic Info Card Component
 const PropertyBasicInfoCard: React.FC<{ property: RealEstateProperty; onEdit: () => void }> = ({ property, onEdit }) => {
@@ -63,7 +59,7 @@ const PropertyBasicInfoCard: React.FC<{ property: RealEstateProperty; onEdit: ()
             Status
           </p>
           <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-            {property.is_public ? 'Public' : 'Private'}
+            Published
           </p>
         </div>
 
@@ -327,7 +323,6 @@ const PropertyAmenitiesCard: React.FC<{ property: RealEstateProperty }> = ({ pro
 const PropertyDetailPage: React.FC = () => {
   const params = useParams();
   const router = useRouter();
-  const { isOpen, openModal, closeModal } = useModal();
   const [property, setProperty] = useState<RealEstateProperty | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -409,7 +404,7 @@ const PropertyDetailPage: React.FC = () => {
             Property not found
           </h3>
           <p className="text-gray-600 dark:text-gray-400 mb-4">
-            The property you're looking for doesn't exist.
+            The property you&apos;re looking for doesn&apos;t exist.
           </p>
           <Button onClick={handleBack}>
             Back to Properties

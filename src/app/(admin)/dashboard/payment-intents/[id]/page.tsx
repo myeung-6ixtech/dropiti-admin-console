@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Button from "@/components/ui/button/Button";
-import { ChevronLeftIcon, DollarLineIcon, MailIcon, UserIcon, EyeIcon, PencilIcon, PlusIcon } from "@/icons";
+import { ChevronLeftIcon, DollarLineIcon, MailIcon, EyeIcon, PencilIcon } from "@/icons";
 import type { PaymentIntentDetail } from "@/types";
 import CustomerInfo from "@/components/CustomerInfo";
 
@@ -156,7 +156,7 @@ export default function PaymentIntentDetail() {
           <DollarLineIcon />
           <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">Payment intent not found</h3>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            The payment intent you're looking for doesn't exist.
+            The payment intent you&apos;re looking for doesn&apos;t exist.
           </p>
         </div>
       </div>
@@ -215,7 +215,6 @@ export default function PaymentIntentDetail() {
                     {stages.map((stage, index) => {
                       const isCompleted = index < currentStageIndex;
                       const isCurrent = index === currentStageIndex;
-                      const isFuture = index > currentStageIndex;
                       
                       return (
                         <div key={stage.id} className="flex flex-col items-center flex-1">

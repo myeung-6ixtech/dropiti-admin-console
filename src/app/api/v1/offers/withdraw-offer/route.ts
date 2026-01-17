@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
       },
       'Offer withdrawn successfully'
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error withdrawing offer:', error);
     return errorResponse(
       error.message || 'Failed to withdraw offer',

@@ -32,7 +32,7 @@ export async function DELETE(request: NextRequest) {
       { deleted: true },
       'Review deleted successfully'
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error deleting review:', error);
     return errorResponse(
       error.message || 'Failed to delete review',

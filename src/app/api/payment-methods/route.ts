@@ -86,7 +86,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(responseData);
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Payment method fetch error:", error);
     return NextResponse.json(
       { 
@@ -160,7 +160,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Prepare payment method payload for Airwallex API
-    const paymentMethodPayload: any = {
+    const paymentMethodPayload: unknown = {
       request_id: `pm-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       customer_id: paymentMethodBody.customer_id,
       type: paymentMethodBody.type,
@@ -245,7 +245,7 @@ export async function POST(request: NextRequest) {
         : "Payment method created successfully",
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Payment method creation error:", error);
     return NextResponse.json(
       { 

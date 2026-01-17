@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
         : "Payment method attached successfully",
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Attach payment method error:", error);
     return NextResponse.json(
       { 

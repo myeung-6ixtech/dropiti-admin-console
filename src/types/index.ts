@@ -23,13 +23,15 @@ export interface CustomerAddress {
 
 export interface CustomerData {
   id?: string;
+  merchant_customer_id?: string;
   email: string;
   first_name: string;
   last_name: string;
   phone_number?: string;
   date_of_birth?: string;
+  business_name?: string;
   address?: CustomerAddress;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface Customer {
@@ -40,7 +42,7 @@ export interface Customer {
   phone_number?: string;
   date_of_birth?: string;
   address?: CustomerAddress;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   created_at?: string;
   updated_at?: string;
 }
@@ -88,7 +90,7 @@ export interface Order {
   budget: string;
 }
 
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;
@@ -204,8 +206,8 @@ export interface PaymentIntent {
   currency: string;
   status: string;
   customer_id?: string;
-  payment_method?: any;
-  metadata?: Record<string, any>;
+  payment_method?: unknown;
+  metadata?: Record<string, unknown>;
 }
 
 export interface PaymentIntentDetail {
@@ -220,8 +222,8 @@ export interface PaymentIntentDetail {
   confirmation_method: "automatic" | "manual";
   created_at: string;
   updated_at: string;
-  payment_method?: any;
-  metadata?: Record<string, any>;
+  payment_method?: unknown;
+  metadata?: Record<string, unknown>;
   customer?: {
     id: string;
     email: string;
@@ -246,14 +248,14 @@ export interface PaymentIntentCreateRequest {
   descriptor?: string;
   capture_method?: "automatic" | "manual";
   confirmation_method?: "automatic" | "manual";
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface PaymentIntentUpdateRequest {
   customer_id?: string;
   merchant_order_id?: string;
   descriptor?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface PaymentMethod {
@@ -275,7 +277,7 @@ export interface PaymentMethod {
 // Transfer types
 export interface TransferUpdateRequest {
   status?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface Transfer {
@@ -307,7 +309,7 @@ export interface Transfer {
       };
     };
   };
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface TransfersResponse {

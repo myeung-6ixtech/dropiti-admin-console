@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(responseData);
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Payment consent fetch error:", error);
     return NextResponse.json(
       { 
@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
       }
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Payment consent creation error:", error);
     return NextResponse.json(
       { 

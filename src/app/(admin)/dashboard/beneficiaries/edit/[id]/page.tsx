@@ -107,7 +107,7 @@ export default function EditBeneficiary() {
 
     try {
       // Prepare update payload
-      const updatePayload: any = {
+      const updatePayload: Record<string, unknown> = {
         beneficiary: {
           entity_type: formData.entity_type,
           bank_details: {

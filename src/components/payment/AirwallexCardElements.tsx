@@ -10,7 +10,7 @@ interface AirwallexCardElementsProps {
 }
 
 export interface AirwallexCardElementsRef {
-  createPaymentMethod: (clientSecret: string) => Promise<any>;
+  createPaymentMethod: (clientSecret: string) => Promise<unknown>;
   isReady: () => boolean;
 }
 
@@ -33,8 +33,8 @@ const AirwallexCardElements = forwardRef<AirwallexCardElementsRef, AirwallexCard
   // Refs to track mounting state and prevent multiple mounts
   const isInitialized = useRef(false);
   const isMounted = useRef(false);
-  const mountedElements = useRef<any[]>([]);
-  const airwallexSDK = useRef<any>(null);
+  const mountedElements = useRef<unknown[]>([]);
+  const airwallexSDK = useRef<unknown>(null);
 
   // Expose methods to parent component
   useImperativeHandle(ref, () => ({
@@ -328,7 +328,7 @@ const AirwallexCardElements = forwardRef<AirwallexCardElementsRef, AirwallexCard
         createElement
       };
 
-      const options: any = {
+      const options: unknown = {
         locale: 'en' as const,
         env: 'demo' as const,
         enabledElements: ['payments'], // Correct for payment elements
@@ -357,7 +357,7 @@ const AirwallexCardElements = forwardRef<AirwallexCardElementsRef, AirwallexCard
       try {
         await init(options);
         initSuccess = true;
-      } catch (e) {
+      } catch {
         // Try fallback to guest flow
         const guestOptions = {
           locale: 'en' as const,

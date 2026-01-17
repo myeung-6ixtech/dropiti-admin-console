@@ -1,7 +1,6 @@
 import { NextRequest } from 'next/server';
 import { RealEstatePropertyService, RealEstatePropertyInsertInput } from '@/app/graphql/services/realEstatePropertyService';
 import { successResponse, errorResponse } from '../../utils/response';
-import { randomUUID } from 'crypto';
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,7 +17,6 @@ export async function POST(request: NextRequest) {
       amenities,
       availableDate,
       ownerId,
-      isDraft,
     } = body;
 
     // Validate required fields
@@ -49,10 +47,10 @@ export async function POST(request: NextRequest) {
       rental_price: price,
       rental_price_currency: 'HKD', // Default, can be made configurable
       availability_date: availableDate,
-      is_public: !isDraft, // If not draft, make public
     };
 
-    const property = await RealEstatePropertyService.createProperty(propertyInput);
+    // Note: isDraft parameter is ignored as is_public field is not available in schema
+    const property = await RealEstatePropertyService.createRealEstateProperty(propertyInput);
 
     return successResponse(
       property,
@@ -60,7 +58,7 @@ export async function POST(request: NextRequest) {
       undefined,
       201
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error creating property:', error);
     return errorResponse(
       error.message || 'Failed to create property',

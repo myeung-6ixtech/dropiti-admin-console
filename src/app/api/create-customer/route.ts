@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import axios from "axios";
 import { getBearerToken } from "@/utils/auth";
-import { corsResponse, handleOptions } from "@/utils/cors";
+import { corsResponse } from "@/utils/cors";
 
 // Create Business Account
 export async function POST(request: Request) {

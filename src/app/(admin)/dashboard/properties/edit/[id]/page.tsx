@@ -1,371 +1,18 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { RealEstatePropertyServiceByUuid } from '@/app/graphql/services/realEstatePropertyServiceByUuid';
-import { RealEstatePropertyService } from '@/app/graphql/services/realEstatePropertyService';
 import { RealEstateProperty, RealEstatePropertyInsertInput } from '@/app/graphql/types';
 import Button from '@/components/ui/button/Button';
-import Input from '@/components/form/input/InputField';
-import Label from '@/components/form/Label';
 import { useToast } from '@/context/ToastContext';
-import { DEFAULT_PROPERTY_CONFIG } from '@/utils/propertyConfig';
-
-// Editable Basic Info Card Component
-const EditableBasicInfoCard: React.FC<{ 
-  formData: Partial<RealEstatePropertyInsertInput>; 
-  onInputChange: (field: string, value: any) => void;
-  onSave: () => void;
-  onCancel: () => void;
-  saving: boolean;
-}> = ({ formData, onInputChange, onSave, onCancel, saving }) => {
-  return (
-    <div className="p-5 border border-gray-200 rounded-2xl dark:border-gray-800 lg:p-6">
-      <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-        <div className="flex-1">
-          <h4 className="text-lg font-semibold text-gray-800 dark:text-white/90 lg:mb-6">
-            Basic Information
-          </h4>
-
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-7 2xl:gap-x-32">
-            <div>
-              <Label>Title *</Label>
-              <input
-                type="text"
-                value={formData.title || ''}
-                onChange={(e) => onInputChange('title', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                required
-              />
-            </div>
-
-            <div>
-              <Label>Property Type *</Label>
-              <select
-                value={formData.property_type || ''}
-                onChange={(e) => onInputChange('property_type', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                required
-              >
-                <option value="">Select Property Type</option>
-                {DEFAULT_PROPERTY_CONFIG.propertyTypes.map((type) => (
-                  <option key={type.value} value={type.value}>
-                    {type.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <Label>Rental Space *</Label>
-              <input
-                type="text"
-                value={formData.rental_space || ''}
-                onChange={(e) => onInputChange('rental_space', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                required
-              />
-            </div>
-
-            <div>
-              <Label>Rental Price</Label>
-              <input
-                type="number"
-                value={formData.rental_price || ''}
-                onChange={(e) => onInputChange('rental_price', parseFloat(e.target.value) || null)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-              />
-            </div>
-
-            <div>
-              <Label>Currency</Label>
-              <select
-                value={formData.rental_price_currency || '$'}
-                onChange={(e) => onInputChange('rental_price_currency', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-              >
-                <option value="$">USD ($)</option>
-                <option value="€">EUR (€)</option>
-                <option value="£">GBP (£)</option>
-                <option value="¥">JPY (¥)</option>
-              </select>
-            </div>
-
-            <div>
-              <Label>Status</Label>
-              <div className="flex items-center mt-2">
-                <input
-                  type="checkbox"
-                  checked={formData.is_public || false}
-                  onChange={(e) => onInputChange('is_public', e.target.checked)}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-                <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
-                  Public Listing
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {formData.description !== undefined && (
-            <div className="mt-6">
-              <Label>Description</Label>
-              <textarea
-                value={formData.description || ''}
-                onChange={(e) => onInputChange('description', e.target.value)}
-                rows={3}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-              />
-            </div>
-          )}
-        </div>
-
-        <div className="flex flex-col gap-3 lg:flex-row">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={onCancel}
-            disabled={saving}
-          >
-            Cancel
-          </Button>
-          <Button
-            size="sm"
-            onClick={onSave}
-            disabled={saving}
-          >
-            {saving ? (
-              <div className="flex items-center">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                Saving...
-              </div>
-            ) : (
-              'Save Changes'
-            )}
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-
-// Editable Property Details Card Component
-const EditablePropertyDetailsCard: React.FC<{ 
-  formData: Partial<RealEstatePropertyInsertInput>; 
-  onInputChange: (field: string, value: any) => void;
-}> = ({ formData, onInputChange }) => {
-  return (
-    <div className="p-5 border border-gray-200 rounded-2xl dark:border-gray-800 lg:p-6">
-      <div>
-        <h4 className="text-lg font-semibold text-gray-800 dark:text-white/90 lg:mb-6">
-          Property Details
-        </h4>
-
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-7 2xl:gap-x-32">
-          <div>
-            <Label>Bedrooms</Label>
-            <input
-              type="number"
-              value={formData.num_bedroom || ''}
-              onChange={(e) => onInputChange('num_bedroom', parseInt(e.target.value) || null)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-            />
-          </div>
-
-          <div>
-            <Label>Bathrooms</Label>
-            <input
-              type="number"
-              value={formData.num_bathroom || ''}
-              onChange={(e) => onInputChange('num_bathroom', parseInt(e.target.value) || null)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-            />
-          </div>
-
-          <div>
-            <Label>Area Size</Label>
-            <input
-              type="number"
-              value={formData.gross_area_size || ''}
-              onChange={(e) => onInputChange('gross_area_size', parseFloat(e.target.value) || null)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-            />
-          </div>
-
-          <div>
-            <Label>Area Unit</Label>
-            <select
-              value={formData.gross_area_size_unit || 'sq ft'}
-              onChange={(e) => onInputChange('gross_area_size_unit', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-            >
-              <option value="sq ft">Square Feet</option>
-              <option value="sq m">Square Meters</option>
-              <option value="sq yd">Square Yards</option>
-            </select>
-          </div>
-
-          <div>
-            <Label>Furnished</Label>
-            <select
-              value={formData.furnished || 'none'}
-              onChange={(e) => onInputChange('furnished', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-            >
-              <option value="none">None</option>
-              <option value="partial">Partial</option>
-              <option value="full">Full</option>
-            </select>
-          </div>
-
-          <div>
-            <Label>Availability Date</Label>
-            <input
-              type="date"
-              value={formData.availability_date ? formData.availability_date.split('T')[0] : ''}
-              onChange={(e) => onInputChange('availability_date', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-            />
-          </div>
-
-          <div className="col-span-2">
-            <div className="flex items-center space-x-6">
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={formData.pets_allowed || false}
-                  onChange={(e) => onInputChange('pets_allowed', e.target.checked)}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-                <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
-                  Pets Allowed
-                </span>
-              </label>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Editable Address Card Component
-const EditableAddressCard: React.FC<{ 
-  formData: Partial<RealEstatePropertyInsertInput>; 
-  onAddressChange: (field: string, value: string) => void;
-}> = ({ formData, onAddressChange }) => {
-  return (
-    <div className="p-5 border border-gray-200 rounded-2xl dark:border-gray-800 lg:p-6">
-      <div>
-        <h4 className="text-lg font-semibold text-gray-800 dark:text-white/90 lg:mb-6">
-          Address
-        </h4>
-
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-7 2xl:gap-x-32">
-          <div>
-            <Label>Unit</Label>
-            <input
-              type="text"
-              value={formData.address?.unit || ''}
-              onChange={(e) => onAddressChange('unit', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-            />
-          </div>
-
-          <div>
-            <Label>Floor</Label>
-            <input
-              type="text"
-              value={formData.address?.floor || ''}
-              onChange={(e) => onAddressChange('floor', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-            />
-          </div>
-
-          <div>
-            <Label>Street</Label>
-            <input
-              type="text"
-              value={formData.address?.street || ''}
-              onChange={(e) => onAddressChange('street', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-            />
-          </div>
-
-          <div>
-            <Label>District</Label>
-            <input
-              type="text"
-              value={formData.address?.district || ''}
-              onChange={(e) => onAddressChange('district', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-            />
-          </div>
-
-          <div>
-            <Label>State</Label>
-            <input
-              type="text"
-              value={formData.address?.state || ''}
-              onChange={(e) => onAddressChange('state', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-            />
-          </div>
-
-          <div>
-            <Label>Country</Label>
-            <input
-              type="text"
-              value={formData.address?.country || ''}
-              onChange={(e) => onAddressChange('country', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-            />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Editable Images Card Component
-const EditableImagesCard: React.FC<{ 
-  formData: Partial<RealEstatePropertyInsertInput>; 
-  onInputChange: (field: string, value: any) => void;
-}> = ({ formData, onInputChange }) => {
-  return (
-    <div className="p-5 border border-gray-200 rounded-2xl dark:border-gray-800 lg:p-6">
-      <div>
-        <h4 className="text-lg font-semibold text-gray-800 dark:text-white/90 lg:mb-6">
-          Images
-        </h4>
-
-        <div className="space-y-4">
-          <div>
-            <Label>Display Image URL</Label>
-            <input
-              type="url"
-              value={formData.display_image || ''}
-              onChange={(e) => onInputChange('display_image', e.target.value)}
-              placeholder="https://example.com/image.jpg"
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-            />
-          </div>
-
-          <div>
-            <Label>Additional Images (comma-separated URLs)</Label>
-            <textarea
-              value={formData.uploaded_images?.join(', ') || ''}
-              onChange={(e) => onInputChange('uploaded_images', e.target.value.split(',').map(url => url.trim()).filter(url => url))}
-              rows={3}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-              placeholder="https://example.com/image1.jpg, https://example.com/image2.jpg"
-            />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
+import { MediaLibraryPickerDialog } from '@/components/ui/media-library-picker-dialog';
+import {
+  BasicInfoSection,
+  PropertyDetailsSection,
+  AddressSection,
+  AmenitiesSection,
+  PhotosSection,
+} from '@/components/properties/shared/PropertyFormSections';
 
 // Main Property Edit Page Component
 const PropertyEditPage: React.FC = () => {
@@ -376,6 +23,7 @@ const PropertyEditPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [mediaPickerOpen, setMediaPickerOpen] = useState(false);
   const [formData, setFormData] = useState<Partial<RealEstatePropertyInsertInput>>({});
 
   const propertyId = params.id as string;
@@ -407,7 +55,6 @@ const PropertyEditPage: React.FC = () => {
             rental_price: fetchedProperty.rental_price,
             rental_price_currency: fetchedProperty.rental_price_currency,
             availability_date: fetchedProperty.availability_date,
-            is_public: fetchedProperty.is_public,
           });
         } else {
           setError('Property not found');
@@ -425,14 +72,14 @@ const PropertyEditPage: React.FC = () => {
     }
   }, [propertyId]);
 
-  const handleInputChange = (field: string, value: any) => {
+  const handleInputChange = (field: string, value: unknown) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
     }));
   };
 
-  const handleAddressChange = (field: string, value: string) => {
+  const handleAddressChange = (field: string, value: string | boolean) => {
     setFormData(prev => ({
       ...prev,
       address: {
@@ -442,11 +89,37 @@ const PropertyEditPage: React.FC = () => {
     }));
   };
 
+  const handleAmenitiesChange = (amenities: unknown) => {
+    setFormData(prev => ({
+      ...prev,
+      amenities,
+    }));
+  };
+
+  const handleMediaSelect = useCallback((urls: string[]) => {
+    if (!urls || urls.length === 0) return;
+    
+    // Add URLs to uploaded_images array, preventing duplicates
+    setFormData((prev) => {
+      const currentImages = prev.uploaded_images || [];
+      const newImages = Array.from(new Set([...currentImages, ...urls]));
+      
+      // Auto-set first image as featured if no featured image exists
+      const displayImage = prev.display_image || urls[0];
+      
+      return {
+        ...prev,
+        uploaded_images: newImages,
+        display_image: displayImage,
+      };
+    });
+  }, []);
+
   const handleSave = async () => {
     try {
       setSaving(true);      
       // Show a loading toast immediately
-      showToast('info', 'Updating property...', 2000);
+      showToast('info', 'Updating property...');
       
       const updatedProperty = await RealEstatePropertyServiceByUuid.updateRealEstatePropertyByUuid(propertyId, formData);
       
@@ -454,7 +127,7 @@ const PropertyEditPage: React.FC = () => {
       
       if (updatedProperty) {
         console.log('Property updated successfully, showing success toast...');
-        showToast('success', 'Property has successfully been updated!', 2000);
+        showToast('success', 'Property has successfully been updated!');
         
         // Redirect immediately after showing success toast
         console.log('Redirecting to property detail page...');
@@ -466,7 +139,7 @@ const PropertyEditPage: React.FC = () => {
     } catch (err) {
       console.error('Error updating property:', err);
       setError(err instanceof Error ? err.message : 'Failed to update property');
-      showToast('error', 'Failed to update property. Please try again.', 5000);
+      showToast('error', 'Failed to update property. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -519,7 +192,7 @@ const PropertyEditPage: React.FC = () => {
             Property not found
           </h3>
           <p className="text-gray-600 dark:text-gray-400 mb-4">
-            The property you're looking for doesn't exist.
+            The property you&apos;re looking for doesn&apos;t exist.
           </p>
           <Button onClick={handleBack}>
             Back to Properties
@@ -550,38 +223,53 @@ const PropertyEditPage: React.FC = () => {
             <p className="text-sm text-gray-600 dark:text-gray-400">
               Property ID: {property.property_uuid || property.id}
             </p>
-            <button
-              onClick={() => showToast('success', 'Test toast - Property edit system is working!')}
-              className="mt-2 px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
-            >
-              Test Toast
-            </button>
           </div>
         </div>
 
         {/* Edit Form Cards */}
         <div className="space-y-6">
-          <EditableBasicInfoCard 
-            formData={formData} 
+          <BasicInfoSection
+            formData={formData}
             onInputChange={handleInputChange}
+            showActions={true}
             onSave={handleSave}
             onCancel={handleCancel}
             saving={saving}
           />
-          <EditablePropertyDetailsCard 
-            formData={formData} 
-            onInputChange={handleInputChange}
-          />
-          <EditableAddressCard 
-            formData={formData} 
+
+          <AddressSection
+            formData={formData}
             onAddressChange={handleAddressChange}
           />
-          <EditableImagesCard 
-            formData={formData} 
+
+          <PropertyDetailsSection
+            formData={formData}
             onInputChange={handleInputChange}
+          />
+
+          <AmenitiesSection
+            formData={formData}
+            onAmenitiesChange={handleAmenitiesChange}
+          />
+
+          <PhotosSection
+            formData={formData}
+            onInputChange={handleInputChange}
+            mediaPickerOpen={mediaPickerOpen}
+            onMediaPickerOpenChange={setMediaPickerOpen}
+            onMediaSelect={handleMediaSelect}
+            disabled={saving}
           />
         </div>
       </div>
+
+      {/* Media Library Picker Dialog */}
+      <MediaLibraryPickerDialog
+        open={mediaPickerOpen}
+        onOpenChange={setMediaPickerOpen}
+        onSelect={handleMediaSelect}
+        maxSelect={20}
+      />
     </div>
   );
 };

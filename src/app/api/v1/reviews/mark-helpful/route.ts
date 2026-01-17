@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
       result.update_real_estate_review_by_pk,
       'Review marked as helpful'
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error marking review as helpful:', error);
     return errorResponse(
       error.message || 'Failed to mark review as helpful',

@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
     const result = await executeQuery(GET_OFFERS, { initiatorFirebaseUid });
 
     return successResponse(result.real_estate_offer || []);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching offers by initiator:', error);
     return errorResponse(
       error.message || 'Failed to fetch offers',

@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
-import { executeQuery } from '@/app/graphql/client';
-import { successResponse, errorResponse } from '../utils/response';
+// import { executeQuery } from '@/app/graphql/client';
+import { successResponse, errorResponse } from '../../utils/response';
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,12 +13,12 @@ export async function GET(request: NextRequest) {
 
     // Note: This is a placeholder implementation
     // You'll need to implement tenant profile retrieval based on your database schema
-    const GET_TENANT_PROFILE = `
+    /* const GET_TENANT_PROFILE = `
       query GetTenantProfile($userFirebaseUid: String!) {
         # Replace with your actual tenant profile query
         # This is a placeholder structure
       }
-    `;
+    `; */
 
     // For now, return placeholder
     // TODO: Implement actual tenant profile query
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
       tenant_listing_title: '',
       tenant_listing_description: '',
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching tenant profile:', error);
     return errorResponse(
       error.message || 'Failed to fetch tenant profile',

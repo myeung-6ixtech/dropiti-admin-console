@@ -39,7 +39,6 @@ const GET_REAL_ESTATE_PROPERTY_BY_UUID = `
       rental_price
       rental_price_currency
       availability_date
-      is_public
     }
   }
 `;
@@ -69,7 +68,6 @@ const GET_REAL_ESTATE_PROPERTY_BY_UUID_DETAILED = `
       rental_price
       rental_price_currency
       availability_date
-      is_public
       landlord {
         auth_provider
         display_name
@@ -112,7 +110,6 @@ const UPDATE_REAL_ESTATE_PROPERTY_BY_UUID = `
         rental_price
         rental_price_currency
         availability_date
-        is_public
       }
     }
   }
@@ -180,7 +177,6 @@ export class RealEstatePropertyServiceByUuid {
             rental_price
             rental_price_currency
             availability_date
-            is_public
           }
         }
       `, { id: parseInt(propertyId) });

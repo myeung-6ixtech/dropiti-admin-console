@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Button from "@/components/ui/button/Button";
-import { ChevronLeftIcon, DollarLineIcon, UserIcon } from "@/icons";
+import { ChevronLeftIcon, DollarLineIcon } from "@/icons";
 import type { PaymentIntentDetail, Customer } from "@/types";
 import CustomerInfo from "@/components/CustomerInfo";
 
@@ -23,7 +23,7 @@ export default function EditPaymentIntent() {
     customer_id: "",
     merchant_order_id: "",
     descriptor: "",
-    metadata: {} as Record<string, any>,
+    metadata: {} as Record<string, unknown>,
   });
 
   const paymentIntentId = params.id as string;
@@ -90,7 +90,7 @@ export default function EditPaymentIntent() {
     setError(null);
 
     try {
-      const updatePayload: any = {};
+      const updatePayload: Record<string, unknown> = {};
 
       // Add fields if they have values
       if (formData.customer_id) {
@@ -199,7 +199,7 @@ export default function EditPaymentIntent() {
           <DollarLineIcon />
           <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">Payment intent not found</h3>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            The payment intent you're looking for doesn't exist.
+            The payment intent you&apos;re looking for doesn&apos;t exist.
           </p>
         </div>
       </div>

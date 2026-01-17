@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
     // Transform to review opportunities format
     // Note: This is a simplified version - you may want to check if reviews already exist
     const opportunities = await Promise.all(
-      offers.map(async (offer: any) => {
+      offers.map(async (offer: unknown) => {
         const isInitiator = offer.initiator_firebase_uid === user_id;
         const otherPartyId = isInitiator 
           ? offer.recipient_firebase_uid 
@@ -91,7 +91,7 @@ export async function GET(request: NextRequest) {
     );
 
     return successResponse({ opportunities });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching review opportunities:', error);
     return errorResponse(
       error.message || 'Failed to fetch review opportunities',

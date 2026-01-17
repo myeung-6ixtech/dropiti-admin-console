@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
-import { executeMutation } from '@/app/graphql/client';
-import { successResponse, errorResponse } from '../utils/response';
+// import { executeMutation } from '@/app/graphql/client';
+import { successResponse, errorResponse } from '../../utils/response';
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,17 +13,17 @@ export async function POST(request: NextRequest) {
 
     // Note: This is a placeholder implementation
     // TODO: Implement actual notification update
-    const UPDATE_NOTIFICATION = `
+    /* const UPDATE_NOTIFICATION = `
       mutation MarkNotificationRead($notificationId: String!) {
         # Replace with your actual notification update mutation
       }
-    `;
+    `; */
 
     return successResponse(
       { marked: true },
       'Notification marked as read'
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error marking notification as read:', error);
     return errorResponse(
       error.message || 'Failed to mark notification as read',

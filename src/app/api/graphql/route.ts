@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     const result = await client.request(query, variables);
 
     return NextResponse.json({ data: result });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('GraphQL API error:', error);
     return NextResponse.json(
       { error: error.message || 'GraphQL request failed' },

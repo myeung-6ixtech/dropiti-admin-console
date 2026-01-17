@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
       undefined,
       201
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error creating review:', error);
     return errorResponse(
       error.message || 'Failed to create review',

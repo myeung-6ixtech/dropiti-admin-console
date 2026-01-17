@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     } else {
       // Convert to WebP and resize
       const image = sharp(buffer);
-      const metadata = await image.metadata();
+      // const metadata = await image.metadata();
       
       processedBuffer = await image
         .resize(MAX_WIDTH, MAX_HEIGHT, { fit: 'inside', withoutEnlargement: true })
@@ -73,11 +73,11 @@ export async function POST(request: NextRequest) {
         Key: s3Key,
       }));
       fileExists = true;
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (err.name !== 'NotFound') throw err;
     }
 
-    // Upload to S3 if doesn't exist
+    // Upload to S3 if doesn&apos;t exist
     let etag: string | undefined;
     if (!fileExists) {
       const uploadResult = await s3Client.send(new PutObjectCommand({
@@ -169,7 +169,7 @@ export async function POST(request: NextRequest) {
       message: fileExists ? 'File already exists (deduped)' : 'File uploaded successfully',
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Upload error:', error);
     return Response.json({ success: false, error: error.message || 'Failed to upload file' }, { status: 500 });
   }

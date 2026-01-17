@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
       address: property.address,
       location: typeof property.address === 'string' 
         ? property.address 
-        : [property.address?.street, property.address?.district, property.address?.city, property.address?.state, property.address?.country].filter(Boolean).join(', '),
+        : [property.address?.street, property.address?.district, property.address?.state, property.address?.country].filter(Boolean).join(', '),
       rental_price: property.rental_price || 0,
       num_bedroom: property.num_bedroom || 0,
       num_bathroom: property.num_bathroom || 0,
@@ -41,14 +41,13 @@ export async function GET(request: NextRequest) {
           ? Object.values(property.amenities).flat().filter(Boolean) 
           : [],
       availability_date: property.availability_date || '',
-      is_public: property.is_public || false,
-      status: property.is_public ? 'published' : 'draft',
+      status: 'published', // Default to published (is_public field not available)
       created_at: property.created_at || '',
-      updated_at: property.updated_at || property.created_at || '',
+      updated_at: property.created_at || '', // updated_at field not available, using created_at
     };
 
     return successResponse(transformedData);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching property:', error);
     return errorResponse(
       error.message || 'Failed to fetch property',

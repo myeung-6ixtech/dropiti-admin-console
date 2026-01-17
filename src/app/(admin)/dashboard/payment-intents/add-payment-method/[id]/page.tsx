@@ -16,7 +16,7 @@ export default function AddPaymentMethod() {
   const [cardholderName, setCardholderName] = useState("");
   const [sdkLoaded, setSdkLoaded] = useState(false);
   const [creatingPaymentMethod, setCreatingPaymentMethod] = useState(false);
-  const [customerPaymentMethods, setCustomerPaymentMethods] = useState<any[]>([]);
+  const [customerPaymentMethods, setCustomerPaymentMethods] = useState<unknown[]>([]);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>("");
   const [billingAddress, setBillingAddress] = useState({
     line1: "",
@@ -312,7 +312,7 @@ export default function AddPaymentMethod() {
           <DollarLineIcon />
           <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">Payment intent not found</h3>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            The payment intent you're looking for doesn't exist.
+            The payment intent you&apos;re looking for doesn&apos;t exist.
           </p>
         </div>
       </div>
@@ -338,7 +338,7 @@ export default function AddPaymentMethod() {
           <DollarLineIcon />
           <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">Customer information missing</h3>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            This payment intent doesn't have associated customer information.
+            This payment intent doesn&apos;t have associated customer information.
           </p>
         </div>
       </div>

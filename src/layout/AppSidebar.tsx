@@ -5,17 +5,11 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useSidebar } from "../context/SidebarContext";
 import {
-  BoxCubeIcon,
   CalenderIcon,
   ChevronDownIcon,
   FolderIcon,
   GridIcon,
   HorizontaLDots,
-  ListIcon,
-  PageIcon,
-  PieChartIcon,
-  PlugInIcon,
-  TableIcon,
   UserCircleIcon,
 } from "../icons/index";
 
@@ -75,19 +69,6 @@ const othersItems: NavItem[] = [
     icon: <FolderIcon />,
     name: "Media Library",
     path: "/dashboard/media-library",
-  },
-  {
-    icon: <PlugInIcon />,
-    name: "API Key Management",
-    path: "/dashboard/api-key-management",
-  },
-  {
-    icon: <PlugInIcon />,
-    name: "Authentication",
-    subItems: [
-      { name: "Sign In", path: "/signin", pro: false },
-      { name: "Sign Up", path: "/signup", pro: false },
-    ],
   },
 ];
 

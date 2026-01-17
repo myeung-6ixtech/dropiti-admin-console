@@ -1,5 +1,4 @@
 import { NextRequest } from 'next/server';
-import { executeQuery } from '@/app/graphql/client';
 import { successResponse, errorResponse } from '../../utils/response';
 
 export async function GET(request: NextRequest) {
@@ -16,7 +15,6 @@ export async function GET(request: NextRequest) {
         real_estate_property_listing(
           where: {
             landlord_firebase_uid: {_eq: $landlord_firebase_uid}
-            is_public: {_eq: false}
           }
           order_by: {created_at: desc}
         ) {
@@ -44,7 +42,7 @@ export async function GET(request: NextRequest) {
     }));
 
     return successResponse(drafts);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching drafts:', error);
     return errorResponse(
       error.message || 'Failed to fetch drafts',
