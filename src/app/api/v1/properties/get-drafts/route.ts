@@ -16,7 +16,6 @@ export async function GET(request: NextRequest) {
         real_estate_property_listing(
           where: {
             landlord_firebase_uid: {_eq: $landlord_firebase_uid}
-            is_public: {_eq: false}
           }
           order_by: {created_at: desc}
         ) {
@@ -32,9 +31,11 @@ export async function GET(request: NextRequest) {
 
     const result = await executeQuery(GET_DRAFTS, {
       landlord_firebase_uid: landlord_id,
-    });
+    }) as {
+      real_estate_property_listing?: Array<Record<string, unknown>>;
+    };
 
-    const drafts = (result.real_estate_property_listing || []).map((draft: any) => ({
+    const drafts = (result.real_estate_property_listing || []).map((draft: Record<string, unknown>) => ({
       id: draft.id?.toString() || '',
       property_uuid: draft.property_uuid,
       title: draft.title,
@@ -44,17 +45,18 @@ export async function GET(request: NextRequest) {
     }));
 
     return successResponse(drafts);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching drafts:', error);
+    const errorObj = error as { message?: string };
     return errorResponse(
-      error.message || 'Failed to fetch drafts',
+      errorObj.message || 'Failed to fetch drafts',
       undefined,
       500
     );
   }
 }
 
-function calculateCompletionPercentage(draft: any): number {
+function calculateCompletionPercentage(draft: Record<string, unknown>): number {
   let completed = 0;
   const total = 8; // Total required fields
 

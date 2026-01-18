@@ -59,12 +59,13 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(responseData);
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Payment consent fetch error:", error);
+    const errorObj = error as { message?: string };
     return NextResponse.json(
       { 
         error: "Internal server error",
-        message: error.message 
+        message: errorObj.message || 'Unknown error'
       },
       { status: 500 }
     );
@@ -114,12 +115,13 @@ export async function POST(request: NextRequest) {
       }
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Payment consent creation error:", error);
+    const errorObj = error as { message?: string };
     return NextResponse.json(
       { 
         error: "Internal server error",
-        message: error.message 
+        message: errorObj.message || 'Unknown error'
       },
       { status: 500 }
     );

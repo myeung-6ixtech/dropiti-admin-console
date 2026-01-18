@@ -28,7 +28,17 @@ export async function POST(request: NextRequest) {
       }
     `;
 
-    const offerResult = await executeQuery(GET_OFFER, { offerId: parseInt(offerId) });
+    const offerResult = await executeQuery(GET_OFFER, { offerId: parseInt(offerId) }) as {
+      real_estate_offer_by_pk?: {
+        id: number;
+        offer_key: string;
+        property_id: string;
+        initiator_firebase_uid: string;
+        recipient_firebase_uid: string;
+        offer_status: string;
+        is_active: boolean;
+      }
+    };
     const currentOffer = offerResult.real_estate_offer_by_pk;
 
     if (!currentOffer) {
@@ -46,7 +56,7 @@ export async function POST(request: NextRequest) {
     const { sdk } = getHasuraGraphqlSDK();
 
     // Update offer status to REJECTED
-    const updateOfferRes = await sdk.updateRealEstateOfferStatus({
+    await sdk.updateRealEstateOfferStatus({
       offerId: parseInt(offerId),
       offerStatus: RealEstateOfferStatus.REJECTED,
     });
@@ -75,10 +85,11 @@ export async function POST(request: NextRequest) {
       },
       'Offer rejected successfully'
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error rejecting offer:', error);
+    const errorObj = error as { message?: string };
     return errorResponse(
-      error.message || 'Failed to reject offer',
+      errorObj.message || 'Failed to reject offer',
       undefined,
       500
     );

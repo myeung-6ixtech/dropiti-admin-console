@@ -40,7 +40,6 @@ export interface RealEstatePropertyInsertInput {
   rental_price?: number;
   rental_price_currency?: string;
   availability_date?: string;
-  is_public: boolean;
 }
 
 // GraphQL queries and mutations
@@ -69,7 +68,6 @@ const GET_REAL_ESTATE_PROPERTIES = `
       rental_price
       rental_price_currency
       availability_date
-      is_public
     }
     real_estate_property_listing_aggregate {
       aggregate {
@@ -104,7 +102,6 @@ const GET_REAL_ESTATE_PROPERTY_BY_ID = `
       rental_price
       rental_price_currency
       availability_date
-      is_public
     }
   }
 `;
@@ -134,7 +131,6 @@ const GET_REAL_ESTATE_PROPERTY_BY_UUID = `
       rental_price
       rental_price_currency
       availability_date
-      is_public
     }
   }
 `;
@@ -169,7 +165,6 @@ const GET_PROPERTIES_BY_LANDLORD = `
       rental_price
       rental_price_currency
       availability_date
-      is_public
     }
   }
 `;
@@ -198,7 +193,6 @@ const INSERT_REAL_ESTATE_PROPERTY = `
       rental_price
       rental_price_currency
       availability_date
-      is_public
     }
   }
 `;
@@ -230,7 +224,6 @@ const UPDATE_REAL_ESTATE_PROPERTY = `
       rental_price
       rental_price_currency
       availability_date
-      is_public
     }
   }
 `;
@@ -399,7 +392,6 @@ export class RealEstatePropertyService {
           rental_price
           rental_price_currency
           availability_date
-          is_public
         }
       }
     `;
@@ -448,7 +440,6 @@ export class RealEstatePropertyService {
           rental_price
           rental_price_currency
           availability_date
-          is_public
         }
       }
     `;
@@ -497,7 +488,6 @@ export class RealEstatePropertyService {
           rental_price
           rental_price_currency
           availability_date
-          is_public
         }
       }
     `;
@@ -516,11 +506,11 @@ export class RealEstatePropertyService {
   }
 
   // Get public properties only
+  // Note: is_public field removed - this now returns all properties
   static async getPublicProperties(pagination?: PaginationInput): Promise<RealEstateProperty[]> {
     const GET_PUBLIC_PROPERTIES = `
       query GetPublicProperties($limit: Int, $offset: Int) {
         real_estate_property_listing(
-          where: {is_public: {_eq: true}}
           limit: $limit
           offset: $offset
           order_by: {created_at: desc}
@@ -546,7 +536,6 @@ export class RealEstatePropertyService {
           rental_price
           rental_price_currency
           availability_date
-          is_public
         }
       }
     `;
@@ -576,7 +565,6 @@ export class RealEstatePropertyService {
     minPrice?: number;
     maxPrice?: number;
     currency?: string;
-    isPublic?: boolean;
   }, pagination?: PaginationInput): Promise<RealEstateProperty[]> {
     const FILTER_PROPERTIES = `
       query FilterProperties(
@@ -591,7 +579,6 @@ export class RealEstatePropertyService {
         $minPrice: numeric,
         $maxPrice: numeric,
         $currency: String,
-        $isPublic: Boolean,
         $limit: Int,
         $offset: Int
       ) {
@@ -605,8 +592,7 @@ export class RealEstatePropertyService {
               {furnished: {_eq: $furnished}},
               {pets_allowed: {_eq: $petsAllowed}},
               {rental_price: {_gte: $minPrice, _lte: $maxPrice}},
-              {rental_price_currency: {_eq: $currency}},
-              {is_public: {_eq: $isPublic}}
+              {rental_price_currency: {_eq: $currency}}
             ]
           }
           limit: $limit
@@ -634,7 +620,6 @@ export class RealEstatePropertyService {
           rental_price
           rental_price_currency
           availability_date
-          is_public
         }
       }
     `;
@@ -651,7 +636,6 @@ export class RealEstatePropertyService {
       minPrice: filters.minPrice,
       maxPrice: filters.maxPrice,
       currency: filters.currency,
-      isPublic: filters.isPublic,
       limit: pagination?.limit || 10,
       offset: pagination?.offset || 0,
     };
@@ -706,7 +690,6 @@ export class RealEstatePropertyService {
           rental_price
           rental_price_currency
           availability_date
-          is_public
         }
       }
     `;

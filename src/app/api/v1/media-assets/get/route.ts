@@ -60,8 +60,9 @@ export async function GET(request: NextRequest) {
       data: data.data.real_estate_media_assets_by_pk,
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Get error:', error);
-    return Response.json({ success: false, error: error.message || 'Failed to get media asset' }, { status: 500 });
+    const errorObj = error as { message?: string };
+    return Response.json({ success: false, error: errorObj.message || 'Failed to get media asset' }, { status: 500 });
   }
 }

@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Button from "@/components/ui/button/Button";
 import { ChevronLeftIcon, DollarLineIcon, UserIcon } from "@/icons";
@@ -24,21 +24,7 @@ export default function AddCustomerPaymentMethod() {
 
   const customerId = params.id as string;
 
-  // Fetch customer data
-  useEffect(() => {
-    if (customerId) {
-      fetchCustomer();
-    }
-  }, [customerId]);
-
-  // Initialize Airwallex when component mounts
-  useEffect(() => {
-    if (customer && !sdkLoaded) {
-      initializeAirwallex();
-    }
-  }, [customer, sdkLoaded]);
-
-  const fetchCustomer = async () => {
+  const fetchCustomer = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch(`/api/customer?id=${customerId}`);
@@ -54,9 +40,9 @@ export default function AddCustomerPaymentMethod() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [customerId]);
 
-  const initializeAirwallex = async () => {
+  const initializeAirwallex = useCallback(async () => {
     try {
       // Initialize Airwallex for Registered Customer Method
       const { init, createElement } = await import('@airwallex/components-sdk');
@@ -93,7 +79,21 @@ export default function AddCustomerPaymentMethod() {
       console.error('Failed to initialize Airwallex:', error);
       setError(`Failed to initialize payment form: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-  };
+  }, [customer]);
+
+  // Fetch customer data
+  useEffect(() => {
+    if (customerId) {
+      fetchCustomer();
+    }
+  }, [customerId, fetchCustomer]);
+
+  // Initialize Airwallex when component mounts
+  useEffect(() => {
+    if (customer && !sdkLoaded) {
+      initializeAirwallex();
+    }
+  }, [customer, sdkLoaded, initializeAirwallex]);
 
   const createPaymentConsent = async () => {
     if (!cardholderName || !customer) {
@@ -116,7 +116,7 @@ export default function AddCustomerPaymentMethod() {
         throw new Error(errorData.error || 'Failed to generate client secret');
       }
       
-      const { client_secret } = await clientSecretResponse.json();
+      await clientSecretResponse.json();
       console.log('Client secret generated successfully');
       
       // Step 2: Create PaymentConsent using SDK
@@ -224,7 +224,7 @@ export default function AddCustomerPaymentMethod() {
           <UserIcon />
           <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">Customer not found</h3>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            The customer you're looking for doesn't exist.
+            The customer you&apos;re looking for doesn&apos;t exist.
           </p>
         </div>
       </div>
@@ -479,7 +479,7 @@ export default function AddCustomerPaymentMethod() {
               Secure Payment Processing
             </h3>
             <p className="text-xs text-blue-700 dark:text-blue-300">
-              All payment information is securely processed using Airwallex's embedded elements. 
+              All payment information is securely processed using Airwallex&apos;s embedded elements. 
               Card details are never stored on our servers and are tokenized for security.
             </p>
           </div>

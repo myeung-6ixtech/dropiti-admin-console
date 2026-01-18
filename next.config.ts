@@ -1,12 +1,34 @@
 import type { NextConfig } from "next";
+import path from "path";
 
 const nextConfig: NextConfig = {
   /* config options here */
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '**.amazonaws.com',
+      },
+      {
+        protocol: 'https',
+        hostname: '**.s3.*.amazonaws.com',
+      },
+    ],
+  },
   webpack(config) {
     config.module.rules.push({
       test: /\.svg$/,
       use: ["@svgr/webpack"],
     });
+    
+    // Add aliases for missing @dropiti packages (stub implementations)
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@dropiti/base/utils': path.resolve(__dirname, 'src/lib/dropiti-stubs/base-utils.ts'),
+      '@dropiti/sdk': path.resolve(__dirname, 'src/lib/dropiti-stubs/sdk.ts'),
+      '@dropiti/sdk/enums': path.resolve(__dirname, 'src/lib/dropiti-stubs/sdk-enums.ts'),
+    };
+    
     return config;
   },
   async headers() {

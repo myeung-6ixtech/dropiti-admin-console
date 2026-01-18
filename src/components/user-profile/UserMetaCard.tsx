@@ -203,7 +203,7 @@ export default function UserMetaCard() {
 
                   <div className="col-span-2 lg:col-span-1">
                     <Label>Role</Label>
-                    <Input type="text" defaultValue={user?.role === "super_admin" ? "Super Admin" : user?.role} disabled />
+                    <Input type="text" defaultValue={user?.role === "super_admin" ? "Super Admin" : user?.role || ""} disabled />
                   </div>
                 </div>
               </div>

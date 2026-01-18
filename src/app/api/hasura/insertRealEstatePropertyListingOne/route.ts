@@ -20,10 +20,11 @@ export async function POST(request: Request) {
         status: 200,
         statusText: 'OK'
       })
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorObj = error as { code?: number; message?: string };
       return Response.json(null, {
-        status: error.code,
-        statusText: error.message
+        status: errorObj.code || 500,
+        statusText: errorObj.message || 'Internal Server Error'
       })
     }
   }

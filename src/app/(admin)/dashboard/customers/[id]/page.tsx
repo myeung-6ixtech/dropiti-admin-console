@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Button from "@/components/ui/button/Button";
 import { ChevronLeftIcon, UserIcon, MailIcon, BoxIcon, DollarLineIcon } from "@/icons";
@@ -9,20 +9,13 @@ export default function CustomerDetail() {
   const params = useParams();
   const router = useRouter();
   const [customer, setCustomer] = useState<Customer | null>(null);
-  const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
+  const [paymentMethods, setPaymentMethods] = useState<unknown[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const customerId = params.id as string;
 
-  useEffect(() => {
-    if (customerId) {
-      fetchCustomer();
-      fetchPaymentMethods();
-    }
-  }, [customerId]);
-
-  const fetchCustomer = async () => {
+  const fetchCustomer = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch(`/api/customer?id=${customerId}`);
@@ -38,9 +31,9 @@ export default function CustomerDetail() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [customerId]);
 
-  const fetchPaymentMethods = async () => {
+  const fetchPaymentMethods = useCallback(async () => {
     try {
       const response = await fetch(`/api/payment-consents?customer_id=${customerId}`);
       
@@ -51,7 +44,14 @@ export default function CustomerDetail() {
     } catch (err) {
       console.warn("Failed to fetch payment consents:", err);
     }
-  };
+  }, [customerId]);
+
+  useEffect(() => {
+    if (customerId) {
+      fetchCustomer();
+      fetchPaymentMethods();
+    }
+  }, [customerId, fetchCustomer, fetchPaymentMethods]);
 
   const getCustomerName = (customer: Customer) => {
     return `${customer.first_name} ${customer.last_name}`.trim() || "N/A";
@@ -109,7 +109,7 @@ export default function CustomerDetail() {
           <UserIcon />
           <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">Customer not found</h3>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            The customer you're looking for doesn't exist.
+            The customer you&apos;re looking for doesn&apos;t exist.
           </p>
         </div>
       </div>
@@ -261,8 +261,10 @@ export default function CustomerDetail() {
             
             {paymentMethods.length > 0 ? (
               <div className="space-y-3">
-                {paymentMethods.map((consent) => (
-                  <div key={consent.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                {paymentMethods.map((consent) => {
+                  const consentData = consent as Record<string, unknown>;
+                  return (
+                  <div key={consentData.id as string} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-6 bg-gray-300 dark:bg-gray-600 rounded flex items-center justify-center">
                         <span className="text-xs font-mono">••••</span>
@@ -272,15 +274,16 @@ export default function CustomerDetail() {
                           Payment Consent
                         </p>
                         <p className="text-xs text-gray-500 dark:text-gray-400">
-                          ID: {consent.id}
+                          ID: {String(consentData.id)}
                         </p>
                       </div>
                     </div>
                     <div className="text-xs text-gray-500 dark:text-gray-400">
-                      {consent.status}
+                      {String(consentData.status)}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="text-center py-6">

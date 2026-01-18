@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-export function corsResponse(data: any, status: number = 200) {
+export function corsResponse(data: unknown, status: number = 200) {
   const response = NextResponse.json(data, { status });
   
   // Add CORS headers

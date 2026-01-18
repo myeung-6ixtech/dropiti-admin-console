@@ -29,7 +29,6 @@ function generateToken(): string {
 function getClientIP(request: NextRequest): string {
   return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 
          request.headers.get('x-real-ip') || 
-         request.ip ||
          'unknown';
 }
 
@@ -39,11 +38,12 @@ async function checkRateLimit(email: string): Promise<{ limited: boolean; reason
     const sinceTime = new Date(Date.now() - LOCKOUT_DURATION_MINUTES * 60 * 1000).toISOString();
     
     const query = `
-      query CheckRateLimit($since: timestamptz!) {
+      query CheckRateLimit($since: timestamptz!, $email: String!) {
         real_estate_user_login_history(
           where: {
             login_at: { _gte: $since },
-            success: { _eq: false }
+            success: { _eq: false },
+            user: { email: { _eq: $email } }
           }
         ) {
           id
@@ -59,7 +59,7 @@ async function checkRateLimit(email: string): Promise<{ limited: boolean; reason
       },
       body: JSON.stringify({
         query,
-        variables: { since: sinceTime }
+        variables: { since: sinceTime, email }
       }),
     });
 
@@ -206,6 +206,10 @@ export async function POST(request: NextRequest) {
           name
           phone
           avatar
+          address
+          business_type
+          company_name
+          description
           status
           role_id
           permissions

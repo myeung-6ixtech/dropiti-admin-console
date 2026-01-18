@@ -30,10 +30,11 @@ export async function POST(request: NextRequest) {
       undefined,
       201
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error uploading file to S3:', error);
+    const errorObj = error as { message?: string };
     return errorResponse(
-      error.message || 'Failed to upload file',
+      errorObj.message || 'Failed to upload file',
       undefined,
       500
     );
