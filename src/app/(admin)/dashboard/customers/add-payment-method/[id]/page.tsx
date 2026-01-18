@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Button from "@/components/ui/button/Button";
 import { ChevronLeftIcon, DollarLineIcon, UserIcon } from "@/icons";
@@ -24,21 +24,7 @@ export default function AddCustomerPaymentMethod() {
 
   const customerId = params.id as string;
 
-  // Fetch customer data
-  useEffect(() => {
-    if (customerId) {
-      fetchCustomer();
-    }
-  }, [customerId]);
-
-  // Initialize Airwallex when component mounts
-  useEffect(() => {
-    if (customer && !sdkLoaded) {
-      initializeAirwallex();
-    }
-  }, [customer, sdkLoaded]);
-
-  const fetchCustomer = async () => {
+  const fetchCustomer = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch(`/api/customer?id=${customerId}`);
@@ -54,9 +40,9 @@ export default function AddCustomerPaymentMethod() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [customerId]);
 
-  const initializeAirwallex = async () => {
+  const initializeAirwallex = useCallback(async () => {
     try {
       // Initialize Airwallex for Registered Customer Method
       const { init, createElement } = await import('@airwallex/components-sdk');
@@ -93,7 +79,21 @@ export default function AddCustomerPaymentMethod() {
       console.error('Failed to initialize Airwallex:', error);
       setError(`Failed to initialize payment form: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-  };
+  }, [customer]);
+
+  // Fetch customer data
+  useEffect(() => {
+    if (customerId) {
+      fetchCustomer();
+    }
+  }, [customerId, fetchCustomer]);
+
+  // Initialize Airwallex when component mounts
+  useEffect(() => {
+    if (customer && !sdkLoaded) {
+      initializeAirwallex();
+    }
+  }, [customer, sdkLoaded, initializeAirwallex]);
 
   const createPaymentConsent = async () => {
     if (!cardholderName || !customer) {

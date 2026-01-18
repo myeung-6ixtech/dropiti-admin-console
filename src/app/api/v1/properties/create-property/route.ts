@@ -60,8 +60,9 @@ export async function POST(request: NextRequest) {
     );
   } catch (error: unknown) {
     console.error('Error creating property:', error);
+    const errorObj = error as { message?: string };
     return errorResponse(
-      error.message || 'Failed to create property',
+      errorObj.message || 'Failed to create property',
       undefined,
       500
     );

@@ -38,8 +38,9 @@ export async function GET(request: NextRequest) {
     );
   } catch (error: unknown) {
     console.error('Error fetching notifications:', error);
+    const errorObj = error as { message?: string };
     return errorResponse(
-      error.message || 'Failed to fetch notifications',
+      errorObj.message || 'Failed to fetch notifications',
       undefined,
       500
     );

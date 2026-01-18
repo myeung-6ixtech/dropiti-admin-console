@@ -26,7 +26,7 @@ export async function PUT(request: NextRequest) {
       }
     `;
 
-    const updateSet: unknown = {};
+    const updateSet: Record<string, unknown> = {};
     if (updates.rating !== undefined) {
       if (updates.rating < 1 || updates.rating > 5) {
         return errorResponse('Rating must be between 1 and 5', undefined, 400);
@@ -38,7 +38,9 @@ export async function PUT(request: NextRequest) {
     const result = await executeMutation(UPDATE_REVIEW, {
       reviewId: parseInt(reviewId),
       set: updateSet,
-    });
+    }) as {
+      update_real_estate_review_by_pk?: unknown;
+    };
 
     return successResponse(
       result.update_real_estate_review_by_pk,
@@ -46,8 +48,9 @@ export async function PUT(request: NextRequest) {
     );
   } catch (error: unknown) {
     console.error('Error updating review:', error);
+    const errorObj = error as { message?: string };
     return errorResponse(
-      error.message || 'Failed to update review',
+      errorObj.message || 'Failed to update review',
       undefined,
       500
     );

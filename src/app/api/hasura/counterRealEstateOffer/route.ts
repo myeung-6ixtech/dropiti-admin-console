@@ -37,7 +37,7 @@ export async function POST(request: Request) {
 
       // insert record of updating offer status to COUNTERED to offer_by_action
       const updateOfferActionObject = {
-        created_at: payload.newOfferInsertInput.created_at,
+        created_at: payload.newOfferInsertInput.created_at || new Date().toISOString(),
         offer_id: payload.currentOffer.id,
         offer_key: payload.currentOffer.offer_key,
         property_id: payload.currentOffer.property_id,
@@ -57,10 +57,10 @@ export async function POST(request: Request) {
 
       // insert recrod of creating offer countered with to offer_by_action
       const actionObject = {
-        created_at: payload.newOfferInsertInput.created_at,
-        offer_id: newOfferId,
+        created_at: payload.newOfferInsertInput.created_at || new Date().toISOString(),
+        offer_id: newOfferId || '',
         offer_key: payload.currentOffer.offer_key,
-        property_id: payload.newOfferInsertInput.property_id,
+        property_id: payload.newOfferInsertInput.property_id || '',
         action: isInitiator
           ? RealEstateOfferAction.INITIATOR_CREATED
           : RealEstateOfferAction.RECIPIENT_CREATED
@@ -71,9 +71,9 @@ export async function POST(request: Request) {
         })
       return Response.json(
         {
-          ...updateOfferRes,
-          ...insertNewOfferRes,
-          ...insertNewOfferActionRes
+          ...(updateOfferRes as Record<string, unknown>),
+          ...(insertNewOfferRes as Record<string, unknown>),
+          ...(insertNewOfferActionRes as Record<string, unknown>)
         },
         {
           status: 200,
@@ -81,9 +81,10 @@ export async function POST(request: Request) {
         }
       )
     } catch (error: unknown) {
+      const errorObj = error as { code?: number; message?: string };
       return Response.json(null, {
-        status: error.code,
-        statusText: error.message
+        status: errorObj.code || 500,
+        statusText: errorObj.message || 'Internal Server Error'
       })
     }
   }

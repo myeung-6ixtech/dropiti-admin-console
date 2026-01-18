@@ -14,7 +14,7 @@ function calculatePlatformFee(amount: number, paymentType: string): number {
 }
 
 // Auto-create transfer for successful payments
-async function createAutoTransfer(paymentData: any) {
+async function createAutoTransfer(paymentData: Record<string, unknown>) {
   try {
     const token = await getBearerToken();
     if (!token) {
@@ -22,7 +22,7 @@ async function createAutoTransfer(paymentData: any) {
       return;
     }
 
-    const metadata = paymentData.metadata || {};
+    const metadata = (paymentData.metadata || {}) as Record<string, unknown>;
     
     // Only auto-transfer if we have beneficiary info in metadata
     if (!metadata.beneficiary_id) {
@@ -30,16 +30,17 @@ async function createAutoTransfer(paymentData: any) {
       return;
     }
 
-    const paymentType = metadata.payment_type || 'other';
-    const platformFee = calculatePlatformFee(paymentData.amount, paymentType);
-    const transferAmount = paymentData.amount - platformFee;
+    const paymentType = (metadata.payment_type as string) || 'other';
+    const amount = paymentData.amount as number;
+    const platformFee = calculatePlatformFee(amount, paymentType);
+    const transferAmount = amount - platformFee;
 
     const transferPayload = {
       request_id: `auto-transfer-${Date.now()}`,
       source_currency: paymentData.currency,
       transfer_currency: paymentData.currency,
       transfer_amount: transferAmount,
-      beneficiary_id: metadata.beneficiary_id,
+      beneficiary_id: metadata.beneficiary_id as string,
       reference: `Auto-transfer for payment ${paymentData.id}`,
       metadata: {
         ...metadata,

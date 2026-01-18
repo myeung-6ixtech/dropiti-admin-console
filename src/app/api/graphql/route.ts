@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
   } catch (error: unknown) {
     console.error('GraphQL API error:', error);
     return NextResponse.json(
-      { error: error.message || 'GraphQL request failed' },
+      { error: error instanceof Error ? error.message : 'GraphQL request failed' },
       { status: 500 }
     );
   }

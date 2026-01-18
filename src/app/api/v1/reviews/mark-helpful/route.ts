@@ -26,7 +26,12 @@ export async function POST(request: NextRequest) {
 
     const result = await executeMutation(UPDATE_REVIEW, {
       reviewId: parseInt(reviewId),
-    });
+    }) as {
+      update_real_estate_review_by_pk?: {
+        id: number;
+        helpful_count: number;
+      };
+    };
 
     return successResponse(
       result.update_real_estate_review_by_pk,
@@ -34,8 +39,9 @@ export async function POST(request: NextRequest) {
     );
   } catch (error: unknown) {
     console.error('Error marking review as helpful:', error);
+    const errorObj = error as { message?: string };
     return errorResponse(
-      error.message || 'Failed to mark review as helpful',
+      errorObj.message || 'Failed to mark review as helpful',
       undefined,
       500
     );

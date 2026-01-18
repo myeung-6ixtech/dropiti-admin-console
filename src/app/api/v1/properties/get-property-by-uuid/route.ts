@@ -72,8 +72,9 @@ export async function GET(request: NextRequest) {
     });
   } catch (error: unknown) {
     console.error('Error fetching property by UUID:', error);
+    const errorObj = error as { message?: string };
     return errorResponse(
-      error.message || 'Failed to fetch property',
+      errorObj.message || 'Failed to fetch property',
       undefined,
       500
     );

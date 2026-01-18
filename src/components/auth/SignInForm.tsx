@@ -33,7 +33,7 @@ export default function SignInForm() {
       } else {
         setError(result.error || "Login failed");
       }
-    } catch (error) {
+    } catch {
       setError("An unexpected error occurred");
     } finally {
       setIsLoading(false);

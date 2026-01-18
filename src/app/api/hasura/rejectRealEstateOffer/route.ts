@@ -46,8 +46,8 @@ export async function POST(request: Request) {
 
       return Response.json(
         {
-          ...updateOfferRes,
-          ...updateOfferActioNRes
+          ...(updateOfferRes as Record<string, unknown>),
+          ...(updateOfferActioNRes as Record<string, unknown>)
         },
         {
           status: 200,
@@ -55,9 +55,10 @@ export async function POST(request: Request) {
         }
       )
     } catch (error: unknown) {
+      const errorObj = error as { code?: number; message?: string };
       return Response.json(null, {
-        status: error.code,
-        statusText: error.message
+        status: errorObj.code || 500,
+        statusText: errorObj.message || 'Internal Server Error'
       })
     }
   }

@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Prepare customer payload for Airwallex
-    const customerPayload: unknown = {
+    const customerPayload: Record<string, unknown> = {
       request_id: `req_${Date.now()}`,
       merchant_customer_id: body.merchant_customer_id.trim(),
       first_name: body.first_name.trim(),
@@ -84,19 +84,19 @@ export async function POST(request: NextRequest) {
 
     // Add address if any address field is provided
     if (body.address && Object.values(body.address).some(val => val?.trim())) {
-      customerPayload.address = {};
-      if (body.address.street?.trim()) customerPayload.address.street = body.address.street.trim();
-      if (body.address.city?.trim()) customerPayload.address.city = body.address.city.trim();
-      if (body.address.state?.trim()) customerPayload.address.state = body.address.state.trim();
-      if (body.address.postcode?.trim()) customerPayload.address.postcode = body.address.postcode.trim();
-      if (body.address.country_code?.trim()) customerPayload.address.country_code = body.address.country_code.trim();
+      customerPayload.address = {} as Record<string, unknown>;
+      if (body.address.street?.trim()) (customerPayload.address as Record<string, unknown>).street = body.address.street.trim();
+      if (body.address.city?.trim()) (customerPayload.address as Record<string, unknown>).city = body.address.city.trim();
+      if (body.address.state?.trim()) (customerPayload.address as Record<string, unknown>).state = body.address.state.trim();
+      if (body.address.postcode?.trim()) (customerPayload.address as Record<string, unknown>).postcode = body.address.postcode.trim();
+      if (body.address.country_code?.trim()) (customerPayload.address as Record<string, unknown>).country_code = body.address.country_code.trim();
     }
 
     // Add metadata if provided
     if (body.metadata && Object.keys(body.metadata).length > 0) {
       const cleanMetadata = Object.entries(body.metadata)
-        .filter(([key, value]) => key.trim() && value.trim())
-        .reduce((acc, [key, value]) => ({ ...acc, [key.trim()]: value.trim() }), {});
+        .filter(([key, value]) => typeof key === 'string' && typeof value === 'string' && key.trim() && value.trim())
+        .reduce((acc, [key, value]) => ({ ...acc, [key.trim()]: (value as string).trim() }), {} as Record<string, string>);
       
       if (Object.keys(cleanMetadata).length > 0) {
         customerPayload.metadata = cleanMetadata;
@@ -214,12 +214,12 @@ export async function PUT(request: NextRequest) {
     // Handle address update
     if (body.address !== undefined) {
       if (Object.values(body.address).some(val => val?.trim())) {
-        updatePayload.address = {};
-        if (body.address.street !== undefined) updatePayload.address.street = body.address.street?.trim() || null;
-        if (body.address.city !== undefined) updatePayload.address.city = body.address.city?.trim() || null;
-        if (body.address.state !== undefined) updatePayload.address.state = body.address.state?.trim() || null;
-        if (body.address.postcode !== undefined) updatePayload.address.postcode = body.address.postcode?.trim() || null;
-        if (body.address.country_code !== undefined) updatePayload.address.country_code = body.address.country_code?.trim() || null;
+        updatePayload.address = {} as Record<string, unknown>;
+        if (body.address.street !== undefined) (updatePayload.address as Record<string, unknown>).street = body.address.street?.trim() || null;
+        if (body.address.city !== undefined) (updatePayload.address as Record<string, unknown>).city = body.address.city?.trim() || null;
+        if (body.address.state !== undefined) (updatePayload.address as Record<string, unknown>).state = body.address.state?.trim() || null;
+        if (body.address.postcode !== undefined) (updatePayload.address as Record<string, unknown>).postcode = body.address.postcode?.trim() || null;
+        if (body.address.country_code !== undefined) (updatePayload.address as Record<string, unknown>).country_code = body.address.country_code?.trim() || null;
       } else {
         updatePayload.address = null;
       }
@@ -229,8 +229,8 @@ export async function PUT(request: NextRequest) {
     if (body.metadata !== undefined) {
       if (Object.keys(body.metadata).length > 0) {
         const cleanMetadata = Object.entries(body.metadata)
-          .filter(([key, value]) => key.trim() && value.trim())
-          .reduce((acc, [key, value]) => ({ ...acc, [key.trim()]: value.trim() }), {});
+          .filter(([key, value]) => typeof key === 'string' && typeof value === 'string' && key.trim() && value.trim())
+          .reduce((acc, [key, value]) => ({ ...acc, [key.trim()]: (value as string).trim() }), {} as Record<string, string>);
         
         updatePayload.metadata = Object.keys(cleanMetadata).length > 0 ? cleanMetadata : null;
       } else {

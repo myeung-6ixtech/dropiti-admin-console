@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect, useCallback } from "react";
+import Image from "next/image";
 import Button from "@/components/ui/button/Button";
 import { useDropzone } from "react-dropzone";
 import { useToast } from "@/context/ToastContext";
@@ -54,7 +55,7 @@ export default function MediaLibrary() {
 
   useEffect(() => {
     fetchAssets(search, 0);
-  }, []);
+  }, [fetchAssets, search]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -196,10 +197,12 @@ export default function MediaLibrary() {
                 onClick={() => setSelectedAsset(asset)}
                 className="group relative aspect-square rounded-lg overflow-hidden border border-gray-200 dark:border-gray-800 hover:border-blue-500 cursor-pointer transition-all"
               >
-                <img
+                <Image
                   src={asset.public_url}
                   alt={asset.original_filename || 'Media asset'}
-                  className="w-full h-full object-cover"
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
                 />
                 <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-2">
                   <p className="text-white text-xs truncate w-full">
@@ -254,11 +257,15 @@ export default function MediaLibrary() {
                 </button>
               </div>
 
-              <img
-                src={selectedAsset.public_url}
-                alt={selectedAsset.original_filename || 'Asset'}
-                className="w-full rounded-lg"
-              />
+              <div className="relative w-full aspect-video">
+                <Image
+                  src={selectedAsset.public_url}
+                  alt={selectedAsset.original_filename || 'Asset'}
+                  fill
+                  className="object-contain rounded-lg"
+                  sizes="(max-width: 1024px) 100vw, 1024px"
+                />
+              </div>
 
               <div className="space-y-3 text-sm">
                 <div>

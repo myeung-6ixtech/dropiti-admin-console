@@ -222,8 +222,9 @@ export interface PaymentIntentDetail {
   confirmation_method: "automatic" | "manual";
   created_at: string;
   updated_at: string;
-  payment_method?: unknown;
-  metadata?: Record<string, unknown>;
+  payment_method?: PaymentMethod | null;
+  metadata?: Record<string, string | number | boolean | null>;
+  client_secret?: string;
   customer?: {
     id: string;
     email: string;

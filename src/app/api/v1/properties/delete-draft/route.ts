@@ -24,7 +24,11 @@ export async function DELETE(request: NextRequest) {
     // Actually delete the property (hard delete)
     const result = await executeMutation(DELETE_PROPERTY, {
       propertyUuid: property_uuid,
-    });
+    }) as {
+      delete_real_estate_property_listing?: {
+        affected_rows: number;
+      };
+    };
 
     if (result.delete_real_estate_property_listing?.affected_rows === 0) {
       return errorResponse('Draft not found', undefined, 404);
@@ -36,8 +40,9 @@ export async function DELETE(request: NextRequest) {
     );
   } catch (error: unknown) {
     console.error('Error deleting draft:', error);
+    const errorObj = error as { message?: string };
     return errorResponse(
-      error.message || 'Failed to delete draft',
+      errorObj.message || 'Failed to delete draft',
       undefined,
       500
     );

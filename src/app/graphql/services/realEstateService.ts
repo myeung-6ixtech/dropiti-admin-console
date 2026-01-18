@@ -1,4 +1,4 @@
-import { hasuraClient, executeQuery, executeMutation } from '../client';
+import { executeQuery, executeMutation } from '../client';
 import { 
   RealEstatePropertyListing, 
   RealEstatePropertyListingInsertInput,

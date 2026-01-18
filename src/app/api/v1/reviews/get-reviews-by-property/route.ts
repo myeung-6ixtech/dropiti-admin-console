@@ -52,14 +52,21 @@ export async function GET(request: NextRequest) {
       reviewType: reviewType || null,
       limit,
       offset,
-    });
+    }) as {
+      real_estate_review?: Array<Record<string, unknown>>;
+      real_estate_review_aggregate?: {
+        aggregate?: {
+          count?: number;
+        };
+      };
+    };
 
     const reviews = result.real_estate_review || [];
     const total = result.real_estate_review_aggregate?.aggregate?.count || 0;
 
     // Get reviewer and reviewee details
     const enrichedReviews = await Promise.all(
-      reviews.map(async (review: any) => {
+      reviews.map(async (review: Record<string, unknown>) => {
         const GET_REVIEWER = `
           query GetUser($firebase_uid: String!) {
             real_estate_user(where: {firebase_uid: {_eq: $firebase_uid}}, limit: 1) {
@@ -73,22 +80,26 @@ export async function GET(request: NextRequest) {
 
         const reviewerResult = await executeQuery(GET_REVIEWER, {
           firebase_uid: review.reviewer_firebase_uid,
-        });
+        }) as {
+          real_estate_user?: Array<Record<string, unknown>>;
+        };
         const reviewer = reviewerResult.real_estate_user?.[0];
 
         const revieweeResult = await executeQuery(GET_REVIEWER, {
           firebase_uid: review.reviewee_firebase_uid,
-        });
+        }) as {
+          real_estate_user?: Array<Record<string, unknown>>;
+        };
         const reviewee = revieweeResult.real_estate_user?.[0];
 
         return {
-          id: review.id.toString(),
-          reviewUuid: review.review_uuid,
-          reviewerFirebaseUid: review.reviewer_firebase_uid,
-          revieweeFirebaseUid: review.reviewee_firebase_uid,
-          reviewType: review.review_type,
-          rating: review.rating,
-          comment: review.comment,
+          id: String(review.id),
+          reviewUuid: review.review_uuid as string,
+          reviewerFirebaseUid: review.reviewer_firebase_uid as string,
+          revieweeFirebaseUid: review.reviewee_firebase_uid as string,
+          reviewType: review.review_type as string,
+          rating: review.rating as number,
+          comment: review.comment as string | null,
           reviewer: reviewer ? {
             uuid: reviewer.uuid || reviewer.firebase_uid,
             displayName: reviewer.display_name,
@@ -117,8 +128,9 @@ export async function GET(request: NextRequest) {
     );
   } catch (error: unknown) {
     console.error('Error fetching reviews by property:', error);
+    const errorObj = error as { message?: string };
     return errorResponse(
-      error.message || 'Failed to fetch reviews',
+      errorObj.message || 'Failed to fetch reviews',
       undefined,
       500
     );

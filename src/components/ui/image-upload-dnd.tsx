@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
+import Image from 'next/image';
 
 interface ImageUploadDndProps {
   images: string[];
@@ -93,10 +94,11 @@ function SortableImage({
       data-handler-id={handlerId}
       className="relative group aspect-square rounded-lg border-2 border-gray-200 dark:border-gray-700 overflow-hidden bg-gray-50 dark:bg-gray-800"
     >
-      <img
+      <Image
         src={url}
         alt=""
-        className="w-full h-full object-cover"
+        fill
+        className="object-cover"
         onError={(e) => {
           e.currentTarget.src = 'https://via.placeholder.com/300x300?text=Invalid+Image';
         }}
@@ -158,7 +160,6 @@ function ImageUploadDndInner({
   onImagesChange,
   featuredImageUrl,
   onFeaturedImageChange,
-  maxImages = 20,
   disabled = false,
   hideDropzone = false,
 }: ImageUploadDndProps) {

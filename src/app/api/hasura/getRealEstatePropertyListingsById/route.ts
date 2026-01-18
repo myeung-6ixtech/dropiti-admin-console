@@ -10,19 +10,19 @@ export async function POST(request: Request) {
 
   if (payload.propertyId) {
     try {
-      const res = (
-        await sdk.getRealEstatePropertyListingsByIdDetailed({
-          propertyId: +payload.propertyId
-        })
-      ).real_estate_property_listing_by_pk
+      const result = await sdk.getRealEstatePropertyListingsByIdDetailed({
+        propertyId: +payload.propertyId
+      }) as { real_estate_property_listing_by_pk?: unknown };
+      const res = result.real_estate_property_listing_by_pk || null;
       return Response.json(res, {
         status: 200,
         statusText: 'OK'
       })
     } catch (error: unknown) {
+      const errorObj = error as { code?: number; message?: string };
       return Response.json(null, {
-        status: error.code,
-        statusText: error.message
+        status: errorObj.code || 500,
+        statusText: errorObj.message || 'Internal Server Error'
       })
     }
   }

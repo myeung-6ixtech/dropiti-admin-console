@@ -97,6 +97,7 @@ export async function GET(request: NextRequest) {
 
   } catch (error: unknown) {
     console.error('List error:', error);
-    return Response.json({ success: false, error: error.message || 'Failed to list media assets' }, { status: 500 });
+    const errorObj = error as { message?: string };
+    return Response.json({ success: false, error: errorObj.message || 'Failed to list media assets' }, { status: 500 });
   }
 }

@@ -33,16 +33,17 @@ function getClientIP(request: NextRequest): string {
 }
 
 // Helper: Check if user is rate limited
-async function checkRateLimit(): Promise<{ limited: boolean; reason?: string }> {
+async function checkRateLimit(email: string): Promise<{ limited: boolean; reason?: string }> {
   try {
     const sinceTime = new Date(Date.now() - LOCKOUT_DURATION_MINUTES * 60 * 1000).toISOString();
     
     const query = `
-      query CheckRateLimit($since: timestamptz!) {
+      query CheckRateLimit($since: timestamptz!, $email: String!) {
         real_estate_user_login_history(
           where: {
             login_at: { _gte: $since },
-            success: { _eq: false }
+            success: { _eq: false },
+            user: { email: { _eq: $email } }
           }
         ) {
           id
@@ -58,7 +59,7 @@ async function checkRateLimit(): Promise<{ limited: boolean; reason?: string }> 
       },
       body: JSON.stringify({
         query,
-        variables: { since: sinceTime }
+        variables: { since: sinceTime, email }
       }),
     });
 

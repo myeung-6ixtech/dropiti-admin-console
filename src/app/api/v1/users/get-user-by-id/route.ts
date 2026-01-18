@@ -69,8 +69,9 @@ export async function GET(request: NextRequest) {
     });
   } catch (error: unknown) {
     console.error('Get user error:', error);
+    const errorObj = error as { message?: string };
     return NextResponse.json(
-      { success: false, error: error.message || 'Failed to get user' },
+      { success: false, error: errorObj.message || 'Failed to get user' },
       { status: 500 }
     );
   }

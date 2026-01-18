@@ -28,7 +28,17 @@ export async function POST(request: NextRequest) {
       }
     `;
 
-    const offerResult = await executeQuery(GET_OFFER, { offerId: parseInt(offerId) });
+    const offerResult = await executeQuery(GET_OFFER, { offerId: parseInt(offerId) }) as { 
+      real_estate_offer_by_pk?: {
+        id: number;
+        offer_key: string;
+        property_id: string;
+        initiator_firebase_uid: string;
+        recipient_firebase_uid: string;
+        offer_status: string;
+        is_active: boolean;
+      }
+    };
     const currentOffer = offerResult.real_estate_offer_by_pk;
 
     if (!currentOffer) {
@@ -86,8 +96,9 @@ export async function POST(request: NextRequest) {
     );
   } catch (error: unknown) {
     console.error('Error accepting offer:', error);
+    const errorObj = error as { message?: string };
     return errorResponse(
-      error.message || 'Failed to accept offer',
+      errorObj.message || 'Failed to accept offer',
       undefined,
       500
     );

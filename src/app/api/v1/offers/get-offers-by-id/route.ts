@@ -24,7 +24,9 @@ export async function GET(request: NextRequest) {
       }
     `;
 
-    const propertyResult = await executeQuery(GET_PROPERTY, { propertyUuid });
+    const propertyResult = await executeQuery(GET_PROPERTY, { propertyUuid }) as {
+      real_estate_property_listing?: Array<{ id: number; [key: string]: unknown }>;
+    };
     const property = propertyResult.real_estate_property_listing?.[0];
 
     if (!property || !property.id) {
@@ -62,13 +64,16 @@ export async function GET(request: NextRequest) {
     const offersResult = await executeQuery(GET_OFFERS, {
       propertyId: property.id,
       recipientFirebaseUid,
-    });
+    }) as {
+      real_estate_offer?: unknown[];
+    };
 
     return successResponse(offersResult.real_estate_offer || []);
   } catch (error: unknown) {
     console.error('Error fetching offers by ID:', error);
+    const errorObj = error as { message?: string };
     return errorResponse(
-      error.message || 'Failed to fetch offers',
+      errorObj.message || 'Failed to fetch offers',
       undefined,
       500
     );

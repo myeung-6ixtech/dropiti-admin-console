@@ -33,7 +33,19 @@ export async function GET(request: NextRequest) {
       }
     `;
 
-    const result = await executeQuery(GET_OFFER, { offerId: parseInt(offerId) });
+    const result = await executeQuery(GET_OFFER, { offerId: parseInt(offerId) }) as {
+      real_estate_offer_by_pk?: {
+        id: number;
+        offer_key: string;
+        property_id: string;
+        initiator_firebase_uid: string;
+        recipient_firebase_uid: string;
+        offer_status: string;
+        is_active: boolean;
+        created_at: string;
+        updated_at: string;
+      }
+    };
     const offer = result.real_estate_offer_by_pk;
 
     if (!offer) {
@@ -61,8 +73,9 @@ export async function GET(request: NextRequest) {
     });
   } catch (error: unknown) {
     console.error('Error fetching negotiation state:', error);
+    const errorObj = error as { message?: string };
     return errorResponse(
-      error.message || 'Failed to fetch negotiation state',
+      errorObj.message || 'Failed to fetch negotiation state',
       undefined,
       500
     );

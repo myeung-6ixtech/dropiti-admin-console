@@ -88,7 +88,14 @@ export async function GET(request: NextRequest) {
       ? { recipient_firebase_uid: userId, limit, offset }
       : { initiator_firebase_uid: userId, limit, offset };
 
-    const result = await executeQuery(GET_OFFERS, variables);
+    const result = await executeQuery(GET_OFFERS, variables) as {
+      real_estate_offer?: unknown[];
+      real_estate_offer_aggregate?: {
+        aggregate?: {
+          count?: number;
+        };
+      };
+    };
 
     const offers = result.real_estate_offer || [];
     const total = result.real_estate_offer_aggregate?.aggregate?.count || 0;
@@ -105,8 +112,9 @@ export async function GET(request: NextRequest) {
     );
   } catch (error: unknown) {
     console.error('Error fetching offers:', error);
+    const errorObj = error as { message?: string };
     return errorResponse(
-      error.message || 'Failed to fetch offers',
+      errorObj.message || 'Failed to fetch offers',
       undefined,
       500
     );

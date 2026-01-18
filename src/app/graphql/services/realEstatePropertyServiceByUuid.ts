@@ -125,16 +125,21 @@ export class RealEstatePropertyServiceByUuid {
     try {
       const result = await executeQuery(GET_REAL_ESTATE_PROPERTY_BY_UUID, {
         propertyUuid
-      });
+      }) as {
+        real_estate_property_listing?: unknown[];
+        data?: {
+          real_estate_property_listing?: unknown[];
+        };
+      };
 
       // The GraphQL client returns result.data, so we check result directly
       if (result.real_estate_property_listing && result.real_estate_property_listing.length > 0) {
-        return result.real_estate_property_listing[0];
+        return result.real_estate_property_listing[0] as RealEstateProperty;
       }
 
       // Fallback check in case the structure is different
       if (result.data?.real_estate_property_listing && result.data.real_estate_property_listing.length > 0) {
-        return result.data.real_estate_property_listing[0];
+        return result.data.real_estate_property_listing[0] as RealEstateProperty;
       }
       console.log('No property found in result');
       return null;
@@ -179,7 +184,11 @@ export class RealEstatePropertyServiceByUuid {
             availability_date
           }
         }
-      `, { id: parseInt(propertyId) });
+      `, { id: parseInt(propertyId) }) as {
+        data?: {
+          real_estate_property_listing_by_pk?: RealEstatePropertyDetailed;
+        };
+      };
 
       if (result.data?.real_estate_property_listing_by_pk) {
         return result.data.real_estate_property_listing_by_pk;
@@ -201,7 +210,11 @@ export class RealEstatePropertyServiceByUuid {
     try {
       const result = await executeQuery(GET_REAL_ESTATE_PROPERTY_BY_UUID_DETAILED, {
         propertyUuid
-      });
+      }) as {
+        data?: {
+          real_estate_property_listing?: RealEstatePropertyDetailed[];
+        };
+      };
 
       if (result.data?.real_estate_property_listing && result.data.real_estate_property_listing.length > 0) {
         return result.data.real_estate_property_listing[0];
@@ -310,7 +323,12 @@ export class RealEstatePropertyServiceByUuid {
       const result = await executeMutation(UPDATE_REAL_ESTATE_PROPERTY_BY_UUID, {
         propertyUuid,
         set: updates
-      });
+      }) as {
+        update_real_estate_property_listing?: {
+          affected_rows: number;
+          returning: RealEstateProperty[];
+        };
+      };
 
       console.log('updateRealEstatePropertyByUuid result:', result);
 

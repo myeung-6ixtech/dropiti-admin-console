@@ -22,7 +22,12 @@ export async function DELETE(request: NextRequest) {
 
     const result = await executeMutation(DELETE_REVIEW, {
       reviewId: parseInt(reviewId),
-    });
+    }) as {
+      delete_real_estate_review_by_pk?: {
+        id: number;
+        review_uuid: string;
+      };
+    };
 
     if (!result.delete_real_estate_review_by_pk) {
       return errorResponse('Review not found', undefined, 404);
@@ -34,8 +39,9 @@ export async function DELETE(request: NextRequest) {
     );
   } catch (error: unknown) {
     console.error('Error deleting review:', error);
+    const errorObj = error as { message?: string };
     return errorResponse(
-      error.message || 'Failed to delete review',
+      errorObj.message || 'Failed to delete review',
       undefined,
       500
     );

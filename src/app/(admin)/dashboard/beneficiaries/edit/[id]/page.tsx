@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Button from "@/components/ui/button/Button";
 import { ChevronLeftIcon, UserIcon, DollarLineIcon, MailIcon, BoxIcon } from "@/icons";
@@ -36,13 +36,7 @@ export default function EditBeneficiary() {
 
   const beneficiaryId = params.id as string;
 
-  useEffect(() => {
-    if (beneficiaryId) {
-      fetchBeneficiary();
-    }
-  }, [beneficiaryId]);
-
-  const fetchBeneficiary = async () => {
+  const fetchBeneficiary = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch(`/api/beneficiaries?id=${beneficiaryId}`);
@@ -81,7 +75,13 @@ export default function EditBeneficiary() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [beneficiaryId]);
+
+  useEffect(() => {
+    if (beneficiaryId) {
+      fetchBeneficiary();
+    }
+  }, [beneficiaryId, fetchBeneficiary]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -107,7 +107,19 @@ export default function EditBeneficiary() {
 
     try {
       // Prepare update payload
-      const updatePayload: Record<string, unknown> = {
+      const updatePayload: {
+        beneficiary: {
+          entity_type: string;
+          bank_details: Record<string, unknown>;
+          address?: Record<string, unknown>;
+          additional_info?: Record<string, unknown>;
+          first_name?: string;
+          last_name?: string;
+          company_name?: string;
+          [key: string]: unknown;
+        };
+        payment_methods: unknown;
+      } = {
         beneficiary: {
           entity_type: formData.entity_type,
           bank_details: {

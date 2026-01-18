@@ -49,8 +49,9 @@ export async function GET(request: NextRequest) {
     return successResponse(transformedData);
   } catch (error: unknown) {
     console.error('Error fetching property:', error);
+    const errorObj = error as { message?: string };
     return errorResponse(
-      error.message || 'Failed to fetch property',
+      errorObj.message || 'Failed to fetch property',
       undefined,
       500
     );

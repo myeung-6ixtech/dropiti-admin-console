@@ -27,13 +27,16 @@ export async function GET(request: NextRequest) {
       }
     `;
 
-    const result = await executeQuery(GET_OFFER_ACTIONS, { offerId: parseInt(offerId) });
+    const result = await executeQuery(GET_OFFER_ACTIONS, { offerId: parseInt(offerId) }) as {
+      real_estate_offer_by_action?: unknown[];
+    };
 
     return successResponse(result.real_estate_offer_by_action || []);
   } catch (error: unknown) {
     console.error('Error fetching offer actions:', error);
+    const errorObj = error as { message?: string };
     return errorResponse(
-      error.message || 'Failed to fetch offer actions',
+      errorObj.message || 'Failed to fetch offer actions',
       undefined,
       500
     );

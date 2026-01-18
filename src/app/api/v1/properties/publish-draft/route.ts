@@ -25,8 +25,9 @@ export async function POST(request: NextRequest) {
     );
   } catch (error: unknown) {
     console.error('Error publishing draft:', error);
+    const errorObj = error as { message?: string };
     return errorResponse(
-      error.message || 'Failed to publish draft',
+      errorObj.message || 'Failed to publish draft',
       undefined,
       500
     );

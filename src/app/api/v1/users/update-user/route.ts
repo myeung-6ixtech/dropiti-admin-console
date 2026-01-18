@@ -26,7 +26,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Build update object
-    const updateObject: unknown = {
+    const updateObject: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
     };
 
@@ -118,8 +118,9 @@ export async function PUT(request: NextRequest) {
     });
   } catch (error: unknown) {
     console.error('Update user error:', error);
+    const errorObj = error as { message?: string };
     return NextResponse.json(
-      { success: false, error: error.message || 'Failed to update user' },
+      { success: false, error: errorObj.message || 'Failed to update user' },
       { status: 500 }
     );
   }

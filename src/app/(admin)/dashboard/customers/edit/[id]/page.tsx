@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Button from "@/components/ui/button/Button";
 import { ChevronLeftIcon, UserIcon, MailIcon } from "@/icons";
@@ -27,13 +27,7 @@ export default function EditCustomer() {
 
   const customerId = params.id as string;
 
-  useEffect(() => {
-    if (customerId) {
-      fetchCustomer();
-    }
-  }, [customerId]);
-
-  const fetchCustomer = async () => {
+  const fetchCustomer = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch(`/api/customer?id=${customerId}`);
@@ -51,7 +45,7 @@ export default function EditCustomer() {
         last_name: data.last_name || "",
         email: data.email || "",
         phone_number: data.phone_number || "",
-        date_of_birth: data.date_of_birth ? data.date_of_birth.split('T')[0] : "",
+        date_of_birth: data.date_of_birth || "",
         street: data.address?.street || "",
         city: data.address?.city || "",
         state: data.address?.state || "",
@@ -63,7 +57,13 @@ export default function EditCustomer() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [customerId]);
+
+  useEffect(() => {
+    if (customerId) {
+      fetchCustomer();
+    }
+  }, [customerId, fetchCustomer]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -96,12 +96,12 @@ export default function EditCustomer() {
 
       // Add address if any address fields are provided
       if (formData.street || formData.city || formData.state || formData.postcode || formData.country_code) {
-        updatePayload.address = {};
-        if (formData.street) updatePayload.address.street = formData.street;
-        if (formData.city) updatePayload.address.city = formData.city;
-        if (formData.state) updatePayload.address.state = formData.state;
-        if (formData.postcode) updatePayload.address.postcode = formData.postcode;
-        if (formData.country_code) updatePayload.address.country_code = formData.country_code;
+        updatePayload.address = {} as Record<string, unknown>;
+        if (formData.street) (updatePayload.address as Record<string, unknown>).street = formData.street;
+        if (formData.city) (updatePayload.address as Record<string, unknown>).city = formData.city;
+        if (formData.state) (updatePayload.address as Record<string, unknown>).state = formData.state;
+        if (formData.postcode) (updatePayload.address as Record<string, unknown>).postcode = formData.postcode;
+        if (formData.country_code) (updatePayload.address as Record<string, unknown>).country_code = formData.country_code;
       }
 
       const response = await fetch(`/api/customer?id=${customerId}`, {

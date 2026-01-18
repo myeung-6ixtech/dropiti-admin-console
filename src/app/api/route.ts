@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-export async function POST(request: Request) {
+export async function POST() {
   try {
     const clientId = process.env.AIRWALLEX_CLIENT_ID;
     const apiKey = process.env.AIRWALLEX_API_KEY;

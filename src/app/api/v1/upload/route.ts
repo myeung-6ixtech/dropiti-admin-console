@@ -38,8 +38,9 @@ export async function POST(request: NextRequest) {
     );
   } catch (error: unknown) {
     console.error('Error uploading files:', error);
+    const errorObj = error as { message?: string };
     return errorResponse(
-      error.message || 'Failed to upload files',
+      errorObj.message || 'Failed to upload files',
       undefined,
       500
     );
@@ -68,8 +69,9 @@ export async function GET(request: NextRequest) {
     });
   } catch (error: unknown) {
     console.error('Error generating presigned URL:', error);
+    const errorObj = error as { message?: string };
     return errorResponse(
-      error.message || 'Failed to generate presigned URL',
+      errorObj.message || 'Failed to generate presigned URL',
       undefined,
       500
     );

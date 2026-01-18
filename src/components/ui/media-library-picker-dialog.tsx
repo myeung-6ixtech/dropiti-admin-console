@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
+import Image from 'next/image';
 
 interface MediaAsset {
   id: string;
@@ -98,7 +99,7 @@ export function MediaLibraryPickerDialog({
     if (open) {
       fetchAssets(true);
     }
-  }, [open, debouncedSearch]);
+  }, [open, debouncedSearch, fetchAssets]);
 
   // Load more handler
   const handleLoadMore = () => {
@@ -110,7 +111,7 @@ export function MediaLibraryPickerDialog({
     if (offset > 0) {
       fetchAssets(false);
     }
-  }, [offset]);
+  }, [offset, fetchAssets]);
 
   // File upload handler
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
@@ -282,10 +283,11 @@ export function MediaLibraryPickerDialog({
                           : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                       } ${!canSelect ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                     >
-                      <img
+                      <Image
                         src={asset.public_url}
                         alt={asset.original_filename || 'Media asset'}
-                        className="w-full h-full object-cover"
+                        fill
+                        className="object-cover"
                       />
                       
                       {isSelected && (

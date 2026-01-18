@@ -93,8 +93,9 @@ export async function GET(request: NextRequest) {
     });
   } catch (error: unknown) {
     console.error('List users error:', error);
+    const errorObj = error as { message?: string };
     return NextResponse.json(
-      { success: false, error: error.message || 'Failed to list users' },
+      { success: false, error: errorObj.message || 'Failed to list users' },
       { status: 500 }
     );
   }

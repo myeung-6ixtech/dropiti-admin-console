@@ -42,7 +42,11 @@ export async function POST(request: NextRequest) {
     `;
 
     const { executeQuery } = await import('@/app/graphql/client');
-    const offerResult = await executeQuery(GET_OFFER, { offerId: parseInt(offerId) });
+    const offerResult = await executeQuery(GET_OFFER, { offerId: parseInt(offerId) }) as {
+      real_estate_offer_by_pk?: {
+        property_id: string;
+      };
+    };
     const offer = offerResult.real_estate_offer_by_pk;
 
     if (!offer) {
@@ -58,7 +62,11 @@ export async function POST(request: NextRequest) {
       }
     `;
 
-    const propertyResult = await executeQuery(GET_PROPERTY, { propertyId: offer.property_id });
+    const propertyResult = await executeQuery(GET_PROPERTY, { propertyId: offer.property_id }) as {
+      real_estate_property_listing_by_pk?: {
+        property_uuid?: string;
+      };
+    };
     const property = propertyResult.real_estate_property_listing_by_pk;
 
     const review_uuid = randomUUID();
@@ -98,7 +106,9 @@ export async function POST(request: NextRequest) {
       created_at: new Date().toISOString(),
     };
 
-    const result = await executeMutation(INSERT_REVIEW, { object: reviewObject });
+    const result = await executeMutation(INSERT_REVIEW, { object: reviewObject }) as {
+      insert_real_estate_review_one?: unknown;
+    };
 
     return successResponse(
       {
@@ -110,8 +120,9 @@ export async function POST(request: NextRequest) {
     );
   } catch (error: unknown) {
     console.error('Error creating review:', error);
+    const errorObj = error as { message?: string };
     return errorResponse(
-      error.message || 'Failed to create review',
+      errorObj.message || 'Failed to create review',
       undefined,
       500
     );

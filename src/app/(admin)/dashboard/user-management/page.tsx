@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Button from "@/components/ui/button/Button";
 import { PencilIcon, TrashBinIcon, UserIcon } from "@/icons";
@@ -14,25 +14,21 @@ export default function UserManagement() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch('/api/v1/users?limit=100&offset=0');
       const result = await response.json();
       
       if (result.success) {
-        setUsers(result.data.map((user: unknown) => ({
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role_id || user.role?.id || 'viewer',
-          status: user.status,
-          createdAt: user.created_at,
-          lastLogin: user.last_login_at,
+        setUsers(result.data.map((user: Record<string, unknown>) => ({
+          id: user.id as string,
+          email: user.email as string,
+          name: user.name as string,
+          role: (user.role_id || (user.role as Record<string, unknown>)?.id || 'viewer') as string,
+          status: user.status as "active" | "inactive",
+          createdAt: user.created_at as string,
+          lastLogin: user.last_login_at as string | undefined,
         })));
       } else {
         showToast('error', result.error || 'Failed to fetch users');
@@ -43,7 +39,11 @@ export default function UserManagement() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [showToast]);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
 
   const handleDeleteUser = (user: User) => {
     if (user.role === "super_admin") {

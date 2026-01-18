@@ -123,8 +123,9 @@ export async function POST(request: NextRequest) {
     }, { status: 201 });
   } catch (error: unknown) {
     console.error('Create user error:', error);
+    const errorObj = error as { message?: string };
     return NextResponse.json(
-      { success: false, error: error.message || 'Failed to create user' },
+      { success: false, error: errorObj.message || 'Failed to create user' },
       { status: 500 }
     );
   }

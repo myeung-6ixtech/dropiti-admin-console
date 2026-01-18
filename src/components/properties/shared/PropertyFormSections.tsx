@@ -426,7 +426,13 @@ export const AddressSection: React.FC<{
 // Amenities Section
 export const AmenitiesSection: React.FC<{
   formData: Partial<RealEstatePropertyInsertInput>;
-  onAmenitiesChange: (amenities: unknown) => void;
+  onAmenitiesChange: (amenities: {
+    kitchen?: string[];
+    bathroom?: string[];
+    furnitures?: string[];
+    additionals?: string[];
+    electricalAppliances?: string[];
+  }) => void;
 }> = ({ formData, onAmenitiesChange }) => {
   const amenitiesData = formData.amenities || { additionals: [] };
   const selectedAmenities = amenitiesData.additionals || [];
@@ -548,6 +554,9 @@ export const PhotosSection: React.FC<{
 }> = ({ 
   formData, 
   onInputChange, 
+  mediaPickerOpen: _mediaPickerOpen,
+  onMediaPickerOpenChange,
+  onMediaSelect: _onMediaSelect,
   disabled = false 
 }) => {
   const images = formData.uploaded_images || [];

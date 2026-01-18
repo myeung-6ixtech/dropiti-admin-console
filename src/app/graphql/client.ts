@@ -1,5 +1,5 @@
 // Client-side GraphQL client that uses the server-side API route
-const executeGraphQLRequest = async <T = unknown>(query: string, variables?: any): Promise<T> => {
+const executeGraphQLRequest = async <T = unknown>(query: string, variables?: Record<string, unknown>): Promise<T> => {
   try {
     const response = await fetch('/api/graphql', {
       method: 'POST',
@@ -37,7 +37,7 @@ export const hasuraClient = {
 // Create a client for user operations (if you need user-specific authentication)
 export const createUserClient = (userToken?: string) => {
   return {
-    request: async <T = unknown>(query: string, variables?: any): Promise<T> => {
+    request: async <T = unknown>(query: string, variables?: Record<string, unknown>): Promise<T> => {
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       };
@@ -67,7 +67,7 @@ export const createUserClient = (userToken?: string) => {
 export const hasuraEndpoint = '/api/graphql';
 
 // Helper function to execute queries
-export const executeQuery = async <T = unknown>(query: string, variables?: any): Promise<T> => {
+export const executeQuery = async <T = unknown>(query: string, variables?: Record<string, unknown>): Promise<T> => {
   try {
     return await executeGraphQLRequest<T>(query, variables);
   } catch (error) {
@@ -77,7 +77,7 @@ export const executeQuery = async <T = unknown>(query: string, variables?: any):
 };
 
 // Helper function to execute mutations
-export const executeMutation = async <T = unknown>(mutation: string, variables?: any): Promise<T> => {
+export const executeMutation = async <T = unknown>(mutation: string, variables?: Record<string, unknown>): Promise<T> => {
   try {
     return await executeGraphQLRequest<T>(mutation, variables);
   } catch (error) {
@@ -87,7 +87,7 @@ export const executeMutation = async <T = unknown>(mutation: string, variables?:
 };
 
 // Helper function to execute subscriptions (if using WebSocket)
-export const executeSubscription = async <T = unknown>(subscription: string, variables?: any): Promise<T> => {
+export const executeSubscription = async <T = unknown>(subscription: string, variables?: Record<string, unknown>): Promise<T> => {
   try {
     return await executeGraphQLRequest<T>(subscription, variables);
   } catch (error) {

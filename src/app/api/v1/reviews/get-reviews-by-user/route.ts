@@ -52,7 +52,14 @@ export async function GET(request: NextRequest) {
       reviewType: reviewType || null,
       limit,
       offset,
-    });
+    }) as {
+      real_estate_review?: Array<Record<string, unknown>>;
+      real_estate_review_aggregate?: {
+        aggregate?: {
+          count?: number;
+        };
+      };
+    };
 
     const reviews = result.real_estate_review || [];
     const total = result.real_estate_review_aggregate?.aggregate?.count || 0;
@@ -69,8 +76,9 @@ export async function GET(request: NextRequest) {
     );
   } catch (error: unknown) {
     console.error('Error fetching reviews by user:', error);
+    const errorObj = error as { message?: string };
     return errorResponse(
-      error.message || 'Failed to fetch reviews',
+      errorObj.message || 'Failed to fetch reviews',
       undefined,
       500
     );

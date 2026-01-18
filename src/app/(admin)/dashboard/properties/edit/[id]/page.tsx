@@ -89,7 +89,13 @@ const PropertyEditPage: React.FC = () => {
     }));
   };
 
-  const handleAmenitiesChange = (amenities: unknown) => {
+  const handleAmenitiesChange = (amenities: {
+    kitchen?: string[];
+    bathroom?: string[];
+    furnitures?: string[];
+    additionals?: string[];
+    electricalAppliances?: string[];
+  }) => {
     setFormData(prev => ({
       ...prev,
       amenities,

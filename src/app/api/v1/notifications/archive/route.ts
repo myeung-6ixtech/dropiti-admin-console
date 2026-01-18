@@ -19,8 +19,9 @@ export async function POST(request: NextRequest) {
     );
   } catch (error: unknown) {
     console.error('Error archiving notification:', error);
+    const errorObj = error as { message?: string };
     return errorResponse(
-      error.message || 'Failed to archive notification',
+      errorObj.message || 'Failed to archive notification',
       undefined,
       500
     );

@@ -17,6 +17,9 @@ export interface RealEstateOfferByActionInsertInput {
 }
 
 export interface RealEstateOfferInsertInput {
+  created_at?: string;
+  property_id?: string;
+  offer_key?: string;
   [key: string]: unknown;
 }
 
@@ -30,18 +33,21 @@ export interface RealEstateUserInsertInput {
 
 export function getHasuraGraphqlSDK(): {
   sdk: {
-    updateRealEstateOfferStatus: (args: any) => Promise<unknown>;
-    insertRealEstateOfferByActionOne: (args: any) => Promise<unknown>;
-    insertRealEstatePropertyListingOne: (args: any) => Promise<unknown>;
-    insertRealEstateUserByIds: (args: any) => Promise<unknown>;
-    getRealEstatePropertyListings: (args?: any) => Promise<unknown>;
-    getRealEstatePropertyListingsById: (args: any) => Promise<unknown>;
-    getRealEstatePropertyListingsByLandlord: (args: any) => Promise<unknown>;
-    getRealEstateOffersByInitiatorIdDetailed: (args: any) => Promise<unknown>;
-    getRealEstateOffersByRecipientIdDetailed: (args: any) => Promise<unknown>;
-    getRealEstateOffersByPropertyIds: (args: any) => Promise<unknown>;
-    updateRealEstateOffer: (args: any) => Promise<unknown>;
-    insertRealEstateOffer: (args: any) => Promise<unknown>;
+    updateRealEstateOfferStatus: (args: Record<string, unknown>) => Promise<unknown>;
+    insertRealEstateOfferByActionOne: (args: Record<string, unknown>) => Promise<unknown>;
+    insertRealEstatePropertyListingOne: (args: Record<string, unknown>) => Promise<unknown>;
+    insertRealEstateUserByIds: (args: Record<string, unknown>) => Promise<unknown>;
+    getRealEstatePropertyListings: (args?: Record<string, unknown>) => Promise<unknown>;
+    getRealEstatePropertyListingsById: (args: Record<string, unknown>) => Promise<unknown>;
+    getRealEstatePropertyListingsByIdDetailed: (args: Record<string, unknown>) => Promise<unknown>;
+    getRealEstatePropertyListingsByLandlord: (args: Record<string, unknown>) => Promise<unknown>;
+    getRealEstateOffersByInitiatorIdDetailed: (args: Record<string, unknown>) => Promise<unknown>;
+    getRealEstateOffersByRecipientIdDetailed: (args: Record<string, unknown>) => Promise<unknown>;
+    getRealEstateOffersByPropertyIds: (args: Record<string, unknown>) => Promise<unknown>;
+    updateRealEstateOffer: (args: Record<string, unknown>) => Promise<unknown>;
+    insertRealEstateOffer: (args: Record<string, unknown>) => Promise<unknown>;
+    insertRealEstateOfferOne: (args: Record<string, unknown>) => Promise<{ insert_real_estate_offer_one?: { id: string; [key: string]: unknown } }>;
+    getRealEstateUsersByIds: (args: Record<string, unknown>) => Promise<unknown>;
     [key: string]: unknown;
   };
 } {

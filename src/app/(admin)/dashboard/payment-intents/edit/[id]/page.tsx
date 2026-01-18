@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Button from "@/components/ui/button/Button";
 import { ChevronLeftIcon, DollarLineIcon } from "@/icons";
@@ -28,14 +28,7 @@ export default function EditPaymentIntent() {
 
   const paymentIntentId = params.id as string;
 
-  useEffect(() => {
-    if (paymentIntentId) {
-      fetchPaymentIntent();
-      fetchCustomers();
-    }
-  }, [paymentIntentId]);
-
-  const fetchPaymentIntent = async () => {
+  const fetchPaymentIntent = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch(`/api/payments?id=${paymentIntentId}`);
@@ -59,9 +52,9 @@ export default function EditPaymentIntent() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [paymentIntentId]);
 
-  const fetchCustomers = async () => {
+  const fetchCustomers = useCallback(async () => {
     try {
       const response = await fetch("/api/customer");
       
@@ -74,7 +67,14 @@ export default function EditPaymentIntent() {
     } catch (err) {
       console.error("Failed to fetch customers:", err);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (paymentIntentId) {
+      fetchPaymentIntent();
+      fetchCustomers();
+    }
+  }, [paymentIntentId, fetchPaymentIntent, fetchCustomers]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;

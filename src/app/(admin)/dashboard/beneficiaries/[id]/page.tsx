@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Button from "@/components/ui/button/Button";
 import { PencilIcon, ChevronLeftIcon, UserIcon, BoxIcon, DollarLineIcon, MailIcon } from "@/icons";
@@ -14,13 +14,7 @@ export default function BeneficiaryDetail() {
 
   const beneficiaryId = params.id as string;
 
-  useEffect(() => {
-    if (beneficiaryId) {
-      fetchBeneficiary();
-    }
-  }, [beneficiaryId]);
-
-  const fetchBeneficiary = async () => {
+  const fetchBeneficiary = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch(`/api/beneficiaries?id=${beneficiaryId}`);
@@ -36,7 +30,13 @@ export default function BeneficiaryDetail() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [beneficiaryId]);
+
+  useEffect(() => {
+    if (beneficiaryId) {
+      fetchBeneficiary();
+    }
+  }, [beneficiaryId, fetchBeneficiary]);
 
   const getEntityName = (beneficiary: Beneficiary) => {
     if (beneficiary.beneficiary.entity_type === "COMPANY") {

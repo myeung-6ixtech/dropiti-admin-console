@@ -74,7 +74,8 @@ export async function POST(request: NextRequest) {
       }));
       fileExists = true;
     } catch (err: unknown) {
-      if (err.name !== 'NotFound') throw err;
+      const error = err as { name?: string };
+      if (error.name !== 'NotFound') throw err;
     }
 
     // Upload to S3 if doesn&apos;t exist
@@ -171,6 +172,7 @@ export async function POST(request: NextRequest) {
 
   } catch (error: unknown) {
     console.error('Upload error:', error);
-    return Response.json({ success: false, error: error.message || 'Failed to upload file' }, { status: 500 });
+    const errorObj = error as { message?: string };
+    return Response.json({ success: false, error: errorObj.message || 'Failed to upload file' }, { status: 500 });
   }
 }

@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { RealEstatePropertyService } from '@/app/graphql/services/realEstatePropertyService';
+import { RealEstateProperty } from '@/app/graphql/types';
 import { successResponse, errorResponse } from '../../utils/response';
 import { transformProperty } from '../../utils/transformers';
 
@@ -15,7 +16,7 @@ export async function GET(request: NextRequest) {
     const landlord_firebase_uid = searchParams.get('landlord_firebase_uid');
 
     // Build filters
-    const filters: unknown = {};
+    const filters: Record<string, unknown> = {};
     if (minPrice) filters.minPrice = parseFloat(minPrice);
     if (maxPrice) filters.maxPrice = parseFloat(maxPrice);
     if (bedrooms) filters.minBedrooms = parseInt(bedrooms);
@@ -74,7 +75,14 @@ export async function GET(request: NextRequest) {
         landlord_firebase_uid,
         limit,
         offset,
-      });
+      }) as {
+        real_estate_property_listing?: unknown[];
+        real_estate_property_listing_aggregate?: {
+          aggregate?: {
+            count?: number;
+          };
+        };
+      };
 
       const properties = queryResult.real_estate_property_listing || [];
       const total = queryResult.real_estate_property_listing_aggregate?.aggregate?.count || 0;
@@ -89,7 +97,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Transform properties to API guide format
-    const dataArray = Array.isArray(result) ? result : result.data;
+    const dataArray = (Array.isArray(result) ? result : result.data) as RealEstateProperty[];
     const transformedData = dataArray.map(transformProperty);
     const total = Array.isArray(result) ? result.length : result.total;
     const hasMore = Array.isArray(result) ? false : result.hasMore;
@@ -106,8 +114,9 @@ export async function GET(request: NextRequest) {
     );
   } catch (error: unknown) {
     console.error('Error fetching listings:', error);
+    const errorObj = error as { message?: string };
     return errorResponse(
-      error.message || 'Failed to fetch listings',
+      errorObj.message || 'Failed to fetch listings',
       undefined,
       500
     );

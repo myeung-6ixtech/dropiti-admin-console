@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Button from "@/components/ui/button/Button";
 import { ChevronLeftIcon, DollarLineIcon, MailIcon, EyeIcon, PencilIcon } from "@/icons";
@@ -15,13 +15,7 @@ export default function PaymentIntentDetail() {
 
   const paymentIntentId = params.id as string;
 
-  useEffect(() => {
-    if (paymentIntentId) {
-      fetchPaymentIntent();
-    }
-  }, [paymentIntentId]);
-
-  const fetchPaymentIntent = async () => {
+  const fetchPaymentIntent = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch(`/api/payments?id=${paymentIntentId}`);
@@ -30,14 +24,20 @@ export default function PaymentIntentDetail() {
         throw new Error("Failed to fetch payment intent");
       }
       
-      const data = await response.json();
+      const data = await response.json() as PaymentIntentDetail;
       setPaymentIntent(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setLoading(false);
     }
-  };
+  }, [paymentIntentId]);
+
+  useEffect(() => {
+    if (paymentIntentId) {
+      fetchPaymentIntent();
+    }
+  }, [paymentIntentId, fetchPaymentIntent]);
 
   const getStatusBadge = (status: string) => {
     const statusColors = {
@@ -269,7 +269,7 @@ export default function PaymentIntentDetail() {
                     Current Status
                   </h3>
                   <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                    {(() => {
+                    {((): string => {
                       const { stages, currentStageIndex } = getPaymentStage(paymentIntent.status);
                       const currentStage = stages[currentStageIndex];
                       return currentStage ? currentStage.description : "Unknown status";
@@ -285,6 +285,8 @@ export default function PaymentIntentDetail() {
         </div>
       )}
 
+      {paymentIntent ? (
+      <React.Fragment>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Information */}
         <div className="lg:col-span-2 space-y-6">
@@ -341,36 +343,6 @@ export default function PaymentIntentDetail() {
               </div>
             </div>
           </div>
-
-          {/* Order Information */}
-          {paymentIntent.merchant_order_id && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <EyeIcon />
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  Order Information
-                </h2>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Merchant Order ID</label>
-                  <p className="text-sm text-gray-900 dark:text-white mt-1">
-                    {paymentIntent.merchant_order_id}
-                  </p>
-                </div>
-                
-                {paymentIntent.descriptor && (
-                  <div>
-                    <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Descriptor</label>
-                    <p className="text-sm text-gray-900 dark:text-white mt-1">
-                      {paymentIntent.descriptor}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
 
           {/* Payment Method Information */}
           {paymentIntent.payment_method && (
@@ -481,6 +453,8 @@ export default function PaymentIntentDetail() {
           </div>
         </div>
       </div>
+      </React.Fragment>
+      ) : null}
     </div>
   );
 }

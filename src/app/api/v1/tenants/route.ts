@@ -32,8 +32,9 @@ export async function GET(request: NextRequest) {
     );
   } catch (error: unknown) {
     console.error('Error fetching tenant profiles:', error);
+    const errorObj = error as { message?: string };
     return errorResponse(
-      error.message || 'Failed to fetch tenant profiles',
+      errorObj.message || 'Failed to fetch tenant profiles',
       undefined,
       500
     );

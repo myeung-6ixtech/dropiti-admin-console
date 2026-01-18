@@ -11,19 +11,19 @@ export async function POST(request: Request) {
 
   if (body.offerId && body.offerStatus) {
     try {
-      const res = (
-        await sdk.updateRealEstateOfferStatus({
-          ...body
-        })
-      ).update_real_estate_offer
+      const result = await sdk.updateRealEstateOfferStatus({
+        ...body
+      }) as { update_real_estate_offer?: unknown };
+      const res = result.update_real_estate_offer || null;
       return Response.json(res, {
         status: 200,
         statusText: 'OK'
       })
     } catch (error: unknown) {
+      const errorObj = error as { code?: number; message?: string };
       return Response.json(null, {
-        status: error.code,
-        statusText: error.message
+        status: errorObj.code || 500,
+        statusText: errorObj.message || 'Internal Server Error'
       })
     }
   }

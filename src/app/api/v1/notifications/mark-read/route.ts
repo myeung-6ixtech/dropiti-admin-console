@@ -25,8 +25,9 @@ export async function POST(request: NextRequest) {
     );
   } catch (error: unknown) {
     console.error('Error marking notification as read:', error);
+    const errorObj = error as { message?: string };
     return errorResponse(
-      error.message || 'Failed to mark notification as read',
+      errorObj.message || 'Failed to mark notification as read',
       undefined,
       500
     );

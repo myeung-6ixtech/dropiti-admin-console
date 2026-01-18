@@ -34,17 +34,27 @@ export async function GET(request: NextRequest) {
       }
     `;
 
-    const result = await executeQuery(GET_COMPLETED_OFFERS, { user_id });
+    const result = await executeQuery(GET_COMPLETED_OFFERS, { user_id }) as {
+      real_estate_offer?: unknown[];
+    };
     const offers = result.real_estate_offer || [];
 
     // Transform to review opportunities format
     // Note: This is a simplified version - you may want to check if reviews already exist
     const opportunities = await Promise.all(
       offers.map(async (offer: unknown) => {
-        const isInitiator = offer.initiator_firebase_uid === user_id;
+        const offerObj = offer as {
+          id: number;
+          offer_key: string;
+          property_id: string;
+          initiator_firebase_uid: string;
+          recipient_firebase_uid: string;
+          created_at: string;
+        };
+        const isInitiator = offerObj.initiator_firebase_uid === user_id;
         const otherPartyId = isInitiator 
-          ? offer.recipient_firebase_uid 
-          : offer.initiator_firebase_uid;
+          ? offerObj.recipient_firebase_uid 
+          : offerObj.initiator_firebase_uid;
 
         // Get other party info
         const GET_USER = `
@@ -56,7 +66,9 @@ export async function GET(request: NextRequest) {
           }
         `;
 
-        const userResult = await executeQuery(GET_USER, { firebase_uid: otherPartyId });
+        const userResult = await executeQuery(GET_USER, { firebase_uid: otherPartyId }) as {
+          real_estate_user?: Array<{ display_name?: string; photo_url?: string }>;
+        };
         const otherParty = userResult.real_estate_user?.[0];
 
         // Get property info
@@ -69,16 +81,18 @@ export async function GET(request: NextRequest) {
           }
         `;
 
-        const propertyResult = await executeQuery(GET_PROPERTY, { propertyId: offer.property_id });
+        const propertyResult = await executeQuery(GET_PROPERTY, { propertyId: offerObj.property_id }) as {
+          real_estate_property_listing_by_pk?: { property_uuid?: string; title?: string };
+        };
         const property = propertyResult.real_estate_property_listing_by_pk;
 
         // Calculate review window end (e.g., 30 days after offer acceptance)
-        const reviewWindowEnd = new Date(offer.created_at);
+        const reviewWindowEnd = new Date(offerObj.created_at);
         reviewWindowEnd.setDate(reviewWindowEnd.getDate() + 30);
 
         return {
-          id: offer.id.toString(),
-          offerId: offer.id.toString(),
+          id: offerObj.id.toString(),
+          offerId: offerObj.id.toString(),
           propertyUuid: property?.property_uuid || '',
           propertyTitle: property?.title || '',
           otherPartyName: otherParty?.display_name || '',
@@ -93,8 +107,9 @@ export async function GET(request: NextRequest) {
     return successResponse({ opportunities });
   } catch (error: unknown) {
     console.error('Error fetching review opportunities:', error);
+    const errorObj = error as { message?: string };
     return errorResponse(
-      error.message || 'Failed to fetch review opportunities',
+      errorObj.message || 'Failed to fetch review opportunities',
       undefined,
       500
     );

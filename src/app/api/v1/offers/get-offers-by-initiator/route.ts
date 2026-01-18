@@ -35,13 +35,16 @@ export async function GET(request: NextRequest) {
       }
     `;
 
-    const result = await executeQuery(GET_OFFERS, { initiatorFirebaseUid });
+    const result = await executeQuery(GET_OFFERS, { initiatorFirebaseUid }) as {
+      real_estate_offer?: unknown[];
+    };
 
     return successResponse(result.real_estate_offer || []);
   } catch (error: unknown) {
     console.error('Error fetching offers by initiator:', error);
+    const errorObj = error as { message?: string };
     return errorResponse(
-      error.message || 'Failed to fetch offers',
+      errorObj.message || 'Failed to fetch offers',
       undefined,
       500
     );

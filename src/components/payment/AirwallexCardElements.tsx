@@ -14,15 +14,14 @@ export interface AirwallexCardElementsRef {
   isReady: () => boolean;
 }
 
-const AirwallexCardElements = forwardRef<AirwallexCardElementsRef, AirwallexCardElementsProps>(({
+const AirwallexCardElements = forwardRef<AirwallexCardElementsRef, AirwallexCardElementsProps>(function AirwallexCardElements({
   customerId,
   clientSecret,
   onReady,
   onError,
   disabled = false
-}, ref) => {
+}, ref) {
   const [sdkLoaded, setSdkLoaded] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Refs to prevent React from interfering with Airwallex elements
@@ -33,8 +32,8 @@ const AirwallexCardElements = forwardRef<AirwallexCardElementsRef, AirwallexCard
   // Refs to track mounting state and prevent multiple mounts
   const isInitialized = useRef(false);
   const isMounted = useRef(false);
-  const mountedElements = useRef<unknown[]>([]);
-  const airwallexSDK = useRef<unknown>(null);
+  const mountedElements = useRef<any[]>([]);
+  const airwallexSDK = useRef<any>(null);
 
   // Expose methods to parent component
   useImperativeHandle(ref, () => ({
@@ -49,10 +48,10 @@ const AirwallexCardElements = forwardRef<AirwallexCardElementsRef, AirwallexCard
           throw new Error('Airwallex SDK not available in window object');
         }
 
-        const { Airwallex } = window as any;
+        const { Airwallex } = window as unknown as { Airwallex: any };
         
         // Debug: Log available methods
-        console.log('Available Airwallex methods:', Object.keys(Airwallex));
+        console.log('Available Airwallex methods:', Object.keys(Airwallex as object));
         console.log('Airwallex object:', Airwallex);
         console.log('Mounted elements:', mountedElements.current);
         
@@ -63,17 +62,16 @@ const AirwallexCardElements = forwardRef<AirwallexCardElementsRef, AirwallexCard
         
         // Simple test to see what methods are available
         console.log('Testing available methods:');
-        console.log('- Airwallex.confirmPayment:', typeof Airwallex.confirmPayment);
-        console.log('- Airwallex.createPaymentMethod:', typeof Airwallex.createPaymentMethod);
-        console.log('- Airwallex.createPaymentConsent:', typeof Airwallex.createPaymentConsent);
-        console.log('- Airwallex.createConsent:', typeof Airwallex.createConsent);
+        console.log('- Airwallex.confirmPayment:', typeof (Airwallex as any).confirmPayment);
+        console.log('- Airwallex.createPaymentMethod:', typeof (Airwallex as any).createPaymentMethod);
+        console.log('- Airwallex.createPaymentConsent:', typeof (Airwallex as any).createPaymentConsent);
+        console.log('- Airwallex.createConsent:', typeof (Airwallex as any).createConsent);
         
-        const cardNumberElement = mountedElements.current[0];
+        const cardNumberElement = mountedElements.current[0] as any;
         console.log('- cardNumberElement.confirmPayment:', typeof cardNumberElement?.confirmPayment);
         console.log('- cardNumberElement.createPaymentMethod:', typeof cardNumberElement?.createPaymentMethod);
         
         // Try different approaches to create payment method
-        let paymentMethod;
         
         // Approach 1: Try using confirmPayment on the card number element (primary approach)
         // This will create and attach the payment method to the payment intent
@@ -93,9 +91,9 @@ const AirwallexCardElements = forwardRef<AirwallexCardElementsRef, AirwallexCard
             });
           }
           // Approach 2: Try using the global confirmPayment method
-          else if (Airwallex.confirmPayment) {
+          else if ((Airwallex as any).confirmPayment) {
             console.log('Using Airwallex.confirmPayment');
-            return await Airwallex.confirmPayment({
+            return await (Airwallex as any).confirmPayment({
               client_secret: clientSecret,
             });
           }
@@ -107,36 +105,36 @@ const AirwallexCardElements = forwardRef<AirwallexCardElementsRef, AirwallexCard
             });
           }
           // Approach 4: Try createPaymentMethod on global object
-          else if (Airwallex.createPaymentMethod) {
+          else if ((Airwallex as any).createPaymentMethod) {
             console.log('Using Airwallex.createPaymentMethod');
-            return await Airwallex.createPaymentMethod({
+            return await (Airwallex as any).createPaymentMethod({
               client_secret: clientSecret,
             });
           }
           // Approach 5: Try createPaymentConsent on global object (fallback)
-          else if (Airwallex.createPaymentConsent) {
+          else if ((Airwallex as any).createPaymentConsent) {
             console.log('Using Airwallex.createPaymentConsent as fallback');
-            return await Airwallex.createPaymentConsent({
+            return await (Airwallex as any).createPaymentConsent({
               client_secret: clientSecret,
             });
           }
           // Approach 6: Try alternative method names
-          else if (Airwallex.createConsent) {
+          else if ((Airwallex as any).createConsent) {
             console.log('Using Airwallex.createConsent as fallback');
-            return await Airwallex.createConsent({
+            return await (Airwallex as any).createConsent({
               client_secret: clientSecret,
             });
           }
           else {
             console.error('No payment method creation method found');
-            console.log('Available methods on Airwallex:', Object.keys(Airwallex));
+            console.log('Available methods on Airwallex:', Object.keys(Airwallex as object));
             console.log('Available methods on card element:', Object.keys(cardNumberElement || {}));
             throw new Error('No payment method creation method available. Please check Airwallex SDK documentation.');
           }
         })();
         
         // Race between the actual operation and the timeout
-        paymentMethod = await Promise.race([createMethodPromise, timeoutPromise]);
+        const paymentMethod = await Promise.race([createMethodPromise, timeoutPromise]);
         
         console.log('Payment method result:', paymentMethod);
         
@@ -216,13 +214,11 @@ const AirwallexCardElements = forwardRef<AirwallexCardElementsRef, AirwallexCard
         await initializeAirwallex();
         
         setSdkLoaded(true);
-        setLoading(false);
         onReady?.();
       } catch (error) {
         console.error('Failed to setup Airwallex in component:', error);
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         setError(errorMessage);
-        setLoading(false);
         onError?.(errorMessage);
         // Reset initialization flag on error so we can retry
         isInitialized.current = false;
@@ -259,7 +255,8 @@ const AirwallexCardElements = forwardRef<AirwallexCardElementsRef, AirwallexCard
       isMounted.current = false;
       isInitialized.current = false;
     };
-  }, []); // Empty dependency array - only run once
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty dependency array - only run once (component mount/unmount lifecycle)
 
   const loadAirwallexSDK = async (): Promise<void> => {
     return new Promise((resolve, reject) => {
@@ -307,7 +304,7 @@ const AirwallexCardElements = forwardRef<AirwallexCardElementsRef, AirwallexCard
         const airwallexModule = await import('@airwallex/components-sdk');
         init = airwallexModule.init;
         createElement = airwallexModule.createElement;
-      } catch (importError) {
+      } catch {
         // Try global Airwallex object
         if (typeof window !== 'undefined' && (window as any).Airwallex) {
           const globalAirwallex = (window as any).Airwallex;
@@ -328,7 +325,7 @@ const AirwallexCardElements = forwardRef<AirwallexCardElementsRef, AirwallexCard
         createElement
       };
 
-      const options: unknown = {
+      const options: any = {
         locale: 'en' as const,
         env: 'demo' as const,
         enabledElements: ['payments'], // Correct for payment elements
@@ -369,7 +366,7 @@ const AirwallexCardElements = forwardRef<AirwallexCardElementsRef, AirwallexCard
         try {
           await init(guestOptions);
           initSuccess = true;
-        } catch (guestError) {
+        } catch {
           throw new Error('Failed to initialize Airwallex with both registered customer and guest flows');
         }
       }

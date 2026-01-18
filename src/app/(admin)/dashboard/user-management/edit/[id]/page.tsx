@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Button from "@/components/ui/button/Button";
 import { ChevronLeftIcon, UserIcon, MailIcon } from "@/icons";
@@ -49,14 +49,7 @@ export default function EditUser() {
     confirmPassword: "",
   });
 
-  useEffect(() => {
-    if (userId) {
-      fetchUser();
-      fetchRoles();
-    }
-  }, [userId]);
-
-  const fetchRoles = async () => {
+  const fetchRoles = useCallback(async () => {
     try {
       const query = `
         query GetRoles {
@@ -83,9 +76,9 @@ export default function EditUser() {
     } catch (error) {
       console.error('Failed to fetch roles:', error);
     }
-  };
+  }, []);
 
-  const fetchUser = async () => {
+  const fetchUser = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch(`/api/v1/users/get-user-by-id?id=${userId}`);
@@ -121,7 +114,14 @@ export default function EditUser() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId, showToast]);
+
+  useEffect(() => {
+    if (userId) {
+      fetchUser();
+      fetchRoles();
+    }
+  }, [userId, fetchUser, fetchRoles]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;

@@ -91,8 +91,9 @@ export async function DELETE(request: NextRequest) {
     });
   } catch (error: unknown) {
     console.error('Delete user error:', error);
+    const errorObj = error as { message?: string };
     return NextResponse.json(
-      { success: false, error: error.message || 'Failed to delete user' },
+      { success: false, error: errorObj.message || 'Failed to delete user' },
       { status: 500 }
     );
   }

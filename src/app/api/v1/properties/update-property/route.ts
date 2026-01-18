@@ -52,8 +52,9 @@ export async function PUT(request: NextRequest) {
     );
   } catch (error: unknown) {
     console.error('Error updating property:', error);
+    const errorObj = error as { message?: string };
     return errorResponse(
-      error.message || 'Failed to update property',
+      errorObj.message || 'Failed to update property',
       undefined,
       500
     );

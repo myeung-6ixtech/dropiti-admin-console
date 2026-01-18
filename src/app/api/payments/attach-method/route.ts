@@ -80,10 +80,11 @@ export async function POST(request: NextRequest) {
 
   } catch (error: unknown) {
     console.error("Attach payment method error:", error);
+    const errorObj = error as { message?: string };
     return NextResponse.json(
       { 
         error: "Internal server error",
-        message: error.message 
+        message: errorObj.message || 'Unknown error'
       },
       { status: 500 }
     );

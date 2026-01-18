@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Button from "@/components/ui/button/Button";
 import { ChevronLeftIcon, DollarLineIcon } from "@/icons";
-import type { PaymentIntentDetail } from "@/types";
+import type { PaymentIntentDetail, PaymentMethod } from "@/types";
 import CustomerInfo from "@/components/CustomerInfo";
 import AirwallexCardElements, { AirwallexCardElementsRef } from "@/components/payment/AirwallexCardElements";
 
@@ -16,7 +16,7 @@ export default function AddPaymentMethod() {
   const [cardholderName, setCardholderName] = useState("");
   const [sdkLoaded, setSdkLoaded] = useState(false);
   const [creatingPaymentMethod, setCreatingPaymentMethod] = useState(false);
-  const [customerPaymentMethods, setCustomerPaymentMethods] = useState<unknown[]>([]);
+  const [customerPaymentMethods, setCustomerPaymentMethods] = useState<PaymentMethod[]>([]);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>("");
   const [billingAddress, setBillingAddress] = useState({
     line1: "",
@@ -66,13 +66,7 @@ export default function AddPaymentMethod() {
   }, [paymentIntentId, fetchPaymentIntent]);
 
   // Fetch customer payment methods when payment intent is loaded
-  useEffect(() => {
-    if (paymentIntent?.customer?.id) {
-      fetchCustomerPaymentMethods();
-    }
-  }, [paymentIntent?.customer?.id]);
-
-  const fetchCustomerPaymentMethods = async () => {
+  const fetchCustomerPaymentMethods = useCallback(async () => {
     try {
       const response = await fetch(`/api/payment-methods?customer_id=${paymentIntent?.customer?.id}`);
       
@@ -83,7 +77,13 @@ export default function AddPaymentMethod() {
     } catch (err) {
       console.warn("Failed to fetch customer payment methods:", err);
     }
-  };
+  }, [paymentIntent?.customer?.id]);
+
+  useEffect(() => {
+    if (paymentIntent?.customer?.id) {
+      fetchCustomerPaymentMethods();
+    }
+  }, [paymentIntent?.customer?.id, fetchCustomerPaymentMethods]);
 
   const handleAirwallexReady = () => {
     setSdkLoaded(true);
@@ -143,7 +143,7 @@ export default function AddPaymentMethod() {
       
       // Use the existing client secret from the payment intent
       // The Airwallex elements are already initialized with this client secret
-      const client_secret = (paymentIntent as any)?.client_secret;
+      const client_secret = paymentIntent?.client_secret;
       
       if (!client_secret) {
         throw new Error('Payment intent does not have a client secret. Please ensure the payment intent is properly configured.');
@@ -156,9 +156,9 @@ export default function AddPaymentMethod() {
       console.log('Client secret:', client_secret);
       console.log('Airwallex ref ready:', airwallexRef.current?.isReady());
       
-      let paymentMethod;
+      let paymentMethod: { id: string; [key: string]: unknown };
       try {
-        paymentMethod = await airwallexRef.current.createPaymentMethod(client_secret);
+        paymentMethod = await airwallexRef.current.createPaymentMethod(client_secret) as { id: string; [key: string]: unknown };
         console.log('Payment Method created successfully:', paymentMethod);
         console.log('Payment Method type:', typeof paymentMethod);
         console.log('Payment Method keys:', paymentMethod ? Object.keys(paymentMethod) : 'null/undefined');
@@ -480,7 +480,7 @@ export default function AddPaymentMethod() {
                   {/* Airwallex Card Elements Component */}
                   <AirwallexCardElements
                     customerId={paymentIntent.customer.id}
-                    clientSecret={(paymentIntent as any)?.client_secret}
+                    clientSecret={paymentIntent.client_secret || ''}
                     onReady={handleAirwallexReady}
                     onError={handleAirwallexError}
                     ref={airwallexRef}
@@ -551,7 +551,7 @@ export default function AddPaymentMethod() {
                     <Button
                       onClick={createPaymentMethod}
                       disabled={
-                        (!selectedPaymentMethod && (!cardholderName || !sdkLoaded || !(paymentIntent as any)?.client_secret)) || 
+                        (!selectedPaymentMethod && (!cardholderName || !sdkLoaded || !paymentIntent?.client_secret)) || 
                         creatingPaymentMethod
                       }
                       className="flex-1"
