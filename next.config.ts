@@ -3,6 +3,9 @@ import path from "path";
 
 const nextConfig: NextConfig = {
   /* config options here */
+  experimental: {
+    serverComponentsExternalPackages: ['sharp', '@aws-sdk/client-s3'],
+  },
   images: {
     remotePatterns: [
       {
@@ -15,7 +18,7 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  webpack(config) {
+  webpack(config, { isServer }) {
     config.module.rules.push({
       test: /\.svg$/,
       use: ["@svgr/webpack"],
@@ -28,6 +31,12 @@ const nextConfig: NextConfig = {
       '@dropiti/sdk': path.resolve(__dirname, 'src/lib/dropiti-stubs/sdk.ts'),
       '@dropiti/sdk/enums': path.resolve(__dirname, 'src/lib/dropiti-stubs/sdk-enums.ts'),
     };
+    
+    // Ensure Sharp is handled correctly for server-side
+    if (isServer) {
+      config.externals = config.externals || [];
+      config.externals.push('sharp');
+    }
     
     return config;
   },
