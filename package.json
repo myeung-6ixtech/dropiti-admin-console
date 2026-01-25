@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "postinstall": "npm install --include=optional sharp lightningcss || true"
+    "postinstall": "npm install --include=optional || true"
   },
   "dependencies": {
     "@airwallex/components-sdk": "^1.22.0",
