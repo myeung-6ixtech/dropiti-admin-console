@@ -7,11 +7,11 @@ export async function GET(request: NextRequest) {
     const offset = parseInt(searchParams.get('offset') || '0');
     const search = searchParams.get('search') || '';
 
-    const hasuraResponse = await fetch(process.env.NEXT_PUBLIC_HASURA_GRAPHQL_API_URL!, {
+    const hasuraResponse = await fetch(process.env.SDK_BACKEND_URL!, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-hasura-admin-secret': process.env.NEXT_PUBLIC_HASURA_GRAPHQL_ADMIN_SECRET!,
+        'x-hasura-admin-secret': process.env.SDK_HASURA_ADMIN_SECRET!,
       },
       body: JSON.stringify({
         query: `

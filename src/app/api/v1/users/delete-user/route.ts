@@ -24,11 +24,11 @@ export async function DELETE(request: NextRequest) {
       }
     `;
 
-    const checkResponse = await fetch(process.env.NEXT_PUBLIC_HASURA_GRAPHQL_API_URL!, {
+    const checkResponse = await fetch(process.env.SDK_BACKEND_URL!, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-hasura-admin-secret': process.env.NEXT_PUBLIC_HASURA_GRAPHQL_ADMIN_SECRET!,
+        'x-hasura-admin-secret': process.env.SDK_HASURA_ADMIN_SECRET!,
       },
       body: JSON.stringify({
         query: checkQuery,
@@ -63,11 +63,11 @@ export async function DELETE(request: NextRequest) {
       }
     `;
 
-    const response = await fetch(process.env.NEXT_PUBLIC_HASURA_GRAPHQL_API_URL!, {
+    const response = await fetch(process.env.SDK_BACKEND_URL!, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-hasura-admin-secret': process.env.NEXT_PUBLIC_HASURA_GRAPHQL_ADMIN_SECRET!,
+        'x-hasura-admin-secret': process.env.SDK_HASURA_ADMIN_SECRET!,
       },
       body: JSON.stringify({
         query: mutation,

@@ -4,6 +4,8 @@ import { useParams, useRouter } from "next/navigation";
 import Button from "@/components/ui/button/Button";
 import { ChevronLeftIcon, UserIcon, MailIcon } from "@/icons";
 import { useToast } from "@/context/ToastContext";
+import { MediaLibraryPickerDialog } from "@/components/ui/media-library-picker-dialog";
+import Image from "next/image";
 
 interface AdministratorUser {
   id: string;
@@ -33,6 +35,7 @@ export default function EditUser() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [roles, setRoles] = useState<Array<{ id: string; name: string }>>([]);
+  const [isMediaPickerOpen, setIsMediaPickerOpen] = useState(false);
   
   const [formData, setFormData] = useState({
     email: "",
@@ -60,11 +63,10 @@ export default function EditUser() {
         }
       `;
 
-      const response = await fetch(process.env.NEXT_PUBLIC_HASURA_GRAPHQL_API_URL!, {
+      const response = await fetch('/api/graphql', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-hasura-admin-secret': process.env.NEXT_PUBLIC_HASURA_GRAPHQL_ADMIN_SECRET!,
         },
         body: JSON.stringify({ query }),
       });
@@ -313,16 +315,52 @@ export default function EditUser() {
             
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Avatar URL
+                Profile Image
               </label>
-              <input
-                type="url"
-                name="avatar"
-                value={formData.avatar}
-                onChange={handleInputChange}
-                placeholder="https://..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-brand-500 focus:border-brand-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-              />
+              <div className="flex items-center gap-4">
+                {/* Avatar Preview */}
+                <div className="relative">
+                  {formData.avatar ? (
+                    <div className="relative w-20 h-20 rounded-full overflow-hidden border-2 border-gray-300 dark:border-gray-600">
+                      <Image
+                        src={formData.avatar}
+                        alt="Profile avatar"
+                        fill
+                        className="object-cover"
+                        unoptimized
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-20 h-20 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center border-2 border-gray-300 dark:border-gray-600">
+                      <UserIcon className="w-10 h-10 text-gray-400" />
+                    </div>
+                  )}
+                </div>
+                
+                {/* Avatar Actions */}
+                <div className="flex flex-col gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsMediaPickerOpen(true)}
+                  >
+                    Choose from Media Library
+                  </Button>
+                  {formData.avatar && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setFormData(prev => ({ ...prev, avatar: "" }));
+                      }}
+                    >
+                      Remove Image
+                    </Button>
+                  )}
+                </div>
+              </div>
             </div>
             
             <div className="md:col-span-2">
@@ -486,6 +524,21 @@ export default function EditUser() {
           </button>
         </div>
       </form>
+
+      {/* Media Library Picker Dialog */}
+      <MediaLibraryPickerDialog
+        open={isMediaPickerOpen}
+        onOpenChange={setIsMediaPickerOpen}
+        onSelect={(urls) => {
+          if (urls.length > 0) {
+            setFormData(prev => ({ ...prev, avatar: urls[0] }));
+          }
+        }}
+        title="Select Profile Image"
+        description="Choose an image from the media library or upload a new one"
+        maxSelect={1}
+        allowUpload={true}
+      />
     </div>
   );
 }
