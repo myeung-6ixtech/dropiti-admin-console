@@ -1,10 +1,9 @@
 [build]
-  command = "npm ci --include=optional && npm run build"
+  command = "yarn install --frozen-lockfile && yarn build"
   publish = ".next"
 
 [build.environment]
   NODE_VERSION = "20"
-  NPM_FLAGS = "--include=optional"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
