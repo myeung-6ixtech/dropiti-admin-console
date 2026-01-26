@@ -3,8 +3,15 @@ import path from "path";
 
 const nextConfig: NextConfig = {
   /* config options here */
-  experimental: {
-    serverComponentsExternalPackages: ['sharp', '@aws-sdk/client-s3'],
+  eslint: {
+    // Only run ESLint on these directories during production builds
+    dirs: ['src'],
+    // Don't fail the build on ESLint errors (optional, but helps with deployment)
+    ignoreDuringBuilds: false,
+  },
+  typescript: {
+    // Don't fail build on TypeScript errors (set to false for strict mode)
+    ignoreBuildErrors: false,
   },
   images: {
     remotePatterns: [
@@ -31,12 +38,6 @@ const nextConfig: NextConfig = {
       '@dropiti/sdk': path.resolve(__dirname, 'src/lib/dropiti-stubs/sdk.ts'),
       '@dropiti/sdk/enums': path.resolve(__dirname, 'src/lib/dropiti-stubs/sdk-enums.ts'),
     };
-    
-    // Ensure Sharp is handled correctly for server-side
-    if (isServer) {
-      config.externals = config.externals || [];
-      config.externals.push('sharp');
-    }
     
     return config;
   },

@@ -4,7 +4,16 @@
 
 [build.environment]
   NODE_VERSION = "20"
-  SHARP_IGNORE_GLOBAL_LIBVIPS = "1"
+  # Netlify Next.js plugin settings
+  NEXT_USE_NETLIFY_EDGE = "false"
+
+# Skip functions for now (use Edge Functions if needed later)
+[functions]
+  node_bundler = "esbuild"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
+
+# Important:
+# - Do NOT add a catch-all SPA redirect like `/* /index.html 200` for a Next.js app.
+#   That commonly breaks `/_next/static/*` and causes MIME type errors for chunk files.
