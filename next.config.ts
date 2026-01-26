@@ -3,12 +3,6 @@ import path from "path";
 
 const nextConfig: NextConfig = {
   /* config options here */
-  eslint: {
-    // Only run ESLint on these directories during production builds
-    dirs: ['src'],
-    // Don't fail the build on ESLint errors (optional, but helps with deployment)
-    ignoreDuringBuilds: false,
-  },
   typescript: {
     // Don't fail build on TypeScript errors (set to false for strict mode)
     ignoreBuildErrors: false,
@@ -41,6 +35,8 @@ const nextConfig: NextConfig = {
     
     return config;
   },
+  // Turbopack configuration (empty to silence error, we use webpack instead)
+  turbopack: {},
   async headers() {
     return [
       {
