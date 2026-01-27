@@ -5,9 +5,10 @@ import Label from "@/components/form/Label";
 import Button from "@/components/ui/button/Button";
 import { ChevronLeftIcon, EyeCloseIcon, EyeIcon } from "@/icons";
 import Link from "next/link";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/context/ToastContext";
 
 export default function SignInForm() {
   const [showPassword, setShowPassword] = useState(false);
@@ -15,26 +16,48 @@ export default function SignInForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [redirect, setRedirect] = useState("/dashboard");
   
   const { login } = useAuth();
   const router = useRouter();
+  const { showToast } = useToast();
+
+  // Get redirect parameter from URL
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const redirectParam = params.get("redirect");
+      if (redirectParam) {
+        setRedirect(redirectParam);
+      }
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
+    
+    // Basic validation
+    if (!email.trim() || !password.trim()) {
+      showToast('error', "Please enter both email and password.");
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      const result = await login(email, password);
+      const result = await login(email.trim(), password);
       
       if (result.success) {
-        router.push("/dashboard");
+        showToast('success', 'Login successful! Redirecting...');
+        // Redirect to intended destination or dashboard
+        router.push(redirect);
+        router.refresh();
       } else {
-        setError(result.error || "Login failed");
+        // Show error toast
+        showToast('error', result.error || "Login failed. Please check your credentials.");
       }
-    } catch {
-      setError("An unexpected error occurred");
+    } catch (error) {
+      showToast('error', "An unexpected error occurred. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -62,13 +85,6 @@ export default function SignInForm() {
             </p>
           </div>
           <div>
-            
-            {error && (
-              <div className="mb-4 p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">
-                {error}
-              </div>
-            )}
-            
             <form onSubmit={handleSubmit}>
               <div className="space-y-6">
                 <div>
@@ -78,7 +94,7 @@ export default function SignInForm() {
                   <Input 
                     placeholder="info@gmail.com" 
                     type="email" 
-                    defaultValue={email}
+                    value={email}
                     onChange={(e) => setEmail(e.target.value)}
                   />
                 </div>
@@ -90,7 +106,7 @@ export default function SignInForm() {
                     <Input
                       type={showPassword ? "text" : "password"}
                       placeholder="Enter your password"
-                      defaultValue={password}
+                      value={password}
                       onChange={(e) => setPassword(e.target.value)}
                     />
                     <span
@@ -123,6 +139,7 @@ export default function SignInForm() {
                   <Button 
                     className="w-full" 
                     size="sm"
+                    type="submit"
                     disabled={isLoading}
                   >
                     {isLoading ? "Signing in..." : "Sign in"}

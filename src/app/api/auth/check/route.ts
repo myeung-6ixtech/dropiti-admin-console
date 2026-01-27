@@ -14,11 +14,11 @@ async function getRoleInfo(roleId: string) {
       }
     `;
 
-    const response = await fetch(process.env.NEXT_PUBLIC_HASURA_GRAPHQL_API_URL!, {
+    const response = await fetch(process.env.SDK_BACKEND_URL!, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-hasura-admin-secret': process.env.NEXT_PUBLIC_HASURA_GRAPHQL_ADMIN_SECRET!,
+        'x-hasura-admin-secret': process.env.SDK_HASURA_ADMIN_SECRET!,
       },
       body: JSON.stringify({
         query,
@@ -79,11 +79,11 @@ export async function GET() {
       }
     `;
 
-    const response = await fetch(process.env.NEXT_PUBLIC_HASURA_GRAPHQL_API_URL!, {
+    const response = await fetch(process.env.SDK_BACKEND_URL!, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-hasura-admin-secret': process.env.NEXT_PUBLIC_HASURA_GRAPHQL_ADMIN_SECRET!,
+        'x-hasura-admin-secret': process.env.SDK_HASURA_ADMIN_SECRET!,
       },
       body: JSON.stringify({
         query,
@@ -112,11 +112,11 @@ export async function GET() {
     // Check if user is still active
     if (user.status !== 'active') {
       // Deactivate session
-      await fetch(process.env.NEXT_PUBLIC_HASURA_GRAPHQL_API_URL!, {
+      await fetch(process.env.SDK_BACKEND_URL!, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-hasura-admin-secret': process.env.NEXT_PUBLIC_HASURA_GRAPHQL_ADMIN_SECRET!,
+          'x-hasura-admin-secret': process.env.SDK_HASURA_ADMIN_SECRET!,
         },
         body: JSON.stringify({
           query: `

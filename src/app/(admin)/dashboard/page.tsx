@@ -2,10 +2,18 @@
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import Button from "@/components/ui/button/Button";
+import { useEffect } from "react";
 
 export default function Dashboard() {
   const { user, logout, isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
+
+  // Redirect to signin if not authenticated (use useEffect to avoid render-time navigation)
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.push("/signin");
+    }
+  }, [isAuthenticated, isLoading, router]);
 
   if (isLoading) {
     return (
@@ -19,7 +27,6 @@ export default function Dashboard() {
   }
 
   if (!isAuthenticated) {
-    router.push("/signin");
     return null;
   }
 
