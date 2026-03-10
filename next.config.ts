@@ -3,6 +3,9 @@ import path from "path";
 
 const nextConfig: NextConfig = {
   /* config options here */
+  typescript: {
+    ignoreBuildErrors: false,
+  },
   images: {
     remotePatterns: [
       {
@@ -31,6 +34,8 @@ const nextConfig: NextConfig = {
     
     return config;
   },
+  // Turbopack configuration (empty to silence error, we use webpack instead)
+  turbopack: {},
   async headers() {
     return [
       {

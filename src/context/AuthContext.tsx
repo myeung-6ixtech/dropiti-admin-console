@@ -56,11 +56,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       } else {
         setIsAuthenticated(false);
         setUser(null);
+        // Only redirect if we're not already on a public route
+        // Use window.location to avoid React render issues
+        if (typeof window !== 'undefined' && 
+            !window.location.pathname.startsWith('/signin') &&
+            !window.location.pathname.startsWith('/signup')) {
+          window.location.href = "/signin";
+        }
       }
     } catch (error) {
       console.error("Auth check failed:", error);
       setIsAuthenticated(false);
       setUser(null);
+      // Only redirect if we're not already on a public route
+      // Use window.location to avoid React render issues
+      if (typeof window !== 'undefined' && 
+          !window.location.pathname.startsWith('/signin') &&
+          !window.location.pathname.startsWith('/signup')) {
+        window.location.href = "/signin";
+      }
     } finally {
       setIsLoading(false);
     }
@@ -101,7 +115,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     } finally {
       setIsAuthenticated(false);
       setUser(null);
-      router.push("/signin");
+      // Use window.location for navigation to avoid React render issues
+      if (typeof window !== "undefined") {
+        window.location.href = "/signin";
+      }
     }
   };
 

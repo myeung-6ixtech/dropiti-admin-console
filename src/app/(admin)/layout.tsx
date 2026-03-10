@@ -5,7 +5,6 @@ import AppHeader from "@/layout/AppHeader";
 import AppSidebar from "@/layout/AppSidebar";
 import Backdrop from "@/layout/Backdrop";
 import ToastContainer from "@/components/ui/toast/ToastContainer";
-import { useToast } from "@/context/ToastContext";
 import React from "react";
 
 export default function AdminLayout({
@@ -14,7 +13,6 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const { isExpanded, isHovered, isMobileOpen } = useSidebar();
-  const { showToast } = useToast();
 
   // Dynamic class for main content margin based on sidebar state
   const mainContentMargin = isMobileOpen
@@ -36,13 +34,6 @@ export default function AdminLayout({
       >
         {/* Header */}
         <AppHeader />
-        {/* Test Toast Button */}
-        <button
-          onClick={() => showToast('success', 'Test toast from admin layout!')}
-          className="fixed top-20 right-4 z-40 px-3 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600"
-        >
-          Test Toast
-        </button>
         {/* Page Content */}
         <div className="p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6">{children}</div>
       </div>
