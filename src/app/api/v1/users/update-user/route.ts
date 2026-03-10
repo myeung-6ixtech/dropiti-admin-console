@@ -87,11 +87,19 @@ export async function PUT(request: NextRequest) {
       }
     `;
 
+<<<<<<< HEAD
     const response = await fetch(process.env.SDK_BACKEND_URL!, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'x-hasura-admin-secret': process.env.SDK_HASURA_ADMIN_SECRET!,
+=======
+    const response = await fetch(process.env.HASURA_ENDPOINT!, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-hasura-admin-secret': process.env.HASURA_ADMIN_SECRET!,
+>>>>>>> 6337a06 (add new authentication path)
       },
       body: JSON.stringify({
         query: mutation,

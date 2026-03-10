@@ -63,10 +63,18 @@ export default function EditUser() {
         }
       `;
 
+<<<<<<< HEAD
       const response = await fetch('/api/graphql', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+=======
+      const response = await fetch(process.env.HASURA_ENDPOINT!, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-hasura-admin-secret': process.env.HASURA_ADMIN_SECRET!,
+>>>>>>> 6337a06 (add new authentication path)
         },
         body: JSON.stringify({ query }),
       });

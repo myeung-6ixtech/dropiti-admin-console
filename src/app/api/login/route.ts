@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import crypto from "crypto";
+import { jwtVerify } from "jose";
+import { nhostSignIn, hasRole, getNhostJwtSecret } from "@/lib/nhost";
 
+<<<<<<< HEAD
 // PBKDF2 Configuration (matches documentation)
 const PBKDF2_ITERATIONS = 100000;
 const PBKDF2_KEYLEN = 64;
@@ -154,13 +156,16 @@ async function getRoleInfo(roleId: string) {
     return null;
   }
 }
+=======
+const ACCESS_TOKEN_COOKIE = "nhost_access_token";
+const REFRESH_TOKEN_COOKIE = "nhost_refresh_token";
+>>>>>>> 6337a06 (add new authentication path)
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { email, password } = body;
 
-    // Validate input
     if (!email || !password) {
       return NextResponse.json(
         { error: "Email and password are required" },
@@ -168,7 +173,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       return NextResponse.json(
@@ -177,10 +181,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get client info
-    const ipAddress = getClientIP(request);
-    const userAgent = request.headers.get('user-agent') || 'unknown';
+    const { session, error } = await nhostSignIn(email.toLowerCase().trim(), password);
 
+<<<<<<< HEAD
     // Check rate limiting
     const rateLimitCheck = await checkRateLimit(email);
     if (rateLimitCheck.limited) {
@@ -248,30 +251,41 @@ export async function POST(request: NextRequest) {
     // User not found
     if (users.length === 0) {
       await logLoginAttempt(null, email, ipAddress, userAgent, false, 'Administrator account not found');
+=======
+    if (error || !session) {
+>>>>>>> 6337a06 (add new authentication path)
       return NextResponse.json(
         { error: "Invalid email or password" },
         { status: 401 }
       );
     }
 
-    const user = users[0];
-
-    // Check account status
-    if (user.status !== 'active') {
-      await logLoginAttempt(user.id, email, ipAddress, userAgent, false, `Account status: ${user.status}`);
+    // Verify the JWT and check for admin role
+    let payload: Record<string, unknown>;
+    try {
+      const { payload: decoded } = await jwtVerify(
+        session.accessToken,
+        getNhostJwtSecret()
+      );
+      payload = decoded as Record<string, unknown>;
+    } catch {
       return NextResponse.json(
-        { error: `Account is ${user.status}. Please contact support.` },
+        { error: "Token verification failed" },
+        { status: 401 }
+      );
+    }
+
+    if (!hasRole(payload, "admin")) {
+      return NextResponse.json(
+        { error: "Access denied. Admin role required." },
         { status: 403 }
       );
     }
 
-    // Verify password
-    const isPasswordValid = verifyPassword(
-      password,
-      user.password_hash,
-      user.password_salt
-    );
+    const cookieStore = await cookies();
+    const isProd = process.env.NODE_ENV === "production";
 
+<<<<<<< HEAD
     if (!isPasswordValid) {
       await logLoginAttempt(user.id, email, ipAddress, userAgent, false, 'Invalid password');
       return NextResponse.json(
@@ -356,37 +370,36 @@ export async function POST(request: NextRequest) {
           last_login_at: new Date().toISOString()
         }
       }),
+=======
+    cookieStore.set(ACCESS_TOKEN_COOKIE, session.accessToken, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: "strict",
+      maxAge: session.accessTokenExpiresIn,
+      path: "/",
     });
 
-    // Log successful login
-    await logLoginAttempt(user.id, email, ipAddress, userAgent, true, null);
+    cookieStore.set(REFRESH_TOKEN_COOKIE, session.refreshToken, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: "strict",
+      // Refresh tokens are long-lived (30 days by default in Nhost)
+      maxAge: 30 * 24 * 60 * 60,
+      path: "/",
+>>>>>>> 6337a06 (add new authentication path)
+    });
 
-    // Create response
-    const response = NextResponse.json({
+    return NextResponse.json({
       success: true,
       user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        phone: user.phone,
-        avatar: user.avatar,
-        role: role ? { id: role.id, name: role.name } : null,
-        permissions: uniquePermissions,
-        lastLogin: user.last_login_at,
-      }
+        id: session.user.id,
+        email: session.user.email,
+        name: session.user.displayName,
+        avatar: session.user.avatarUrl ?? null,
+        role: "admin",
+        permissions: ["*"],
+      },
     });
-
-    // Set secure HTTP-only cookie with session token
-    const cookieStore = await cookies();
-    cookieStore.set("admin_session", sessionToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: SESSION_EXPIRY_HOURS * 60 * 60,
-      path: '/',
-    });
-
-    return response;
   } catch (error) {
     console.error("Login error:", error);
     return NextResponse.json(

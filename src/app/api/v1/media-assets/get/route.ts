@@ -9,11 +9,19 @@ export async function GET(request: NextRequest) {
       return Response.json({ success: false, error: 'ID required' }, { status: 400 });
     }
 
+<<<<<<< HEAD
     const hasuraResponse = await fetch(process.env.SDK_BACKEND_URL!, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'x-hasura-admin-secret': process.env.SDK_HASURA_ADMIN_SECRET!,
+=======
+    const hasuraResponse = await fetch(process.env.HASURA_ENDPOINT!, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-hasura-admin-secret': process.env.HASURA_ADMIN_SECRET!,
+>>>>>>> 6337a06 (add new authentication path)
       },
       body: JSON.stringify({
         query: `
