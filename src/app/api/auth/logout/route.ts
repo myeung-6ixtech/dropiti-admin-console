@@ -1,46 +1,26 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { nhostSignOut } from "@/lib/nhost";
+
+const ACCESS_TOKEN_COOKIE = "nhost_access_token";
+const REFRESH_TOKEN_COOKIE = "nhost_refresh_token";
 
 export async function POST() {
   try {
     const cookieStore = await cookies();
-    const sessionToken = cookieStore.get("admin_session")?.value;
+    const refreshToken = cookieStore.get(REFRESH_TOKEN_COOKIE)?.value;
 
-    if (sessionToken) {
-      // Deactivate session in database
-      const mutation = `
-        mutation DeactivateSession($token: String!) {
-          update_real_estate_user_sessions(
-            where: { token: { _eq: $token } },
-            _set: { is_active: false }
-          ) {
-            affected_rows
-          }
-        }
-      `;
-
-      await fetch(process.env.NEXT_PUBLIC_HASURA_GRAPHQL_API_URL!, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-hasura-admin-secret': process.env.NEXT_PUBLIC_HASURA_GRAPHQL_ADMIN_SECRET!,
-        },
-        body: JSON.stringify({
-          query: mutation,
-          variables: { token: sessionToken }
-        }),
-      });
+    if (refreshToken) {
+      // Best-effort revocation on Nhost side
+      await nhostSignOut(refreshToken);
     }
 
-    // Clear cookie
-    cookieStore.delete("admin_session");
+    cookieStore.delete(ACCESS_TOKEN_COOKIE);
+    cookieStore.delete(REFRESH_TOKEN_COOKIE);
 
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Logout error:", error);
-    return NextResponse.json(
-      { error: "Logout failed" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Logout failed" }, { status: 500 });
   }
 }

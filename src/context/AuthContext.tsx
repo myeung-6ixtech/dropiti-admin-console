@@ -3,14 +3,12 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 interface User {
-  id: string;
+  id: string;       // Nhost user UUID
   email: string;
   name: string;
-  phone?: string;
-  role: string | null; // Normalized to role ID (e.g., "super_admin", "viewer")
-  permissions?: string[];
-  avatar?: string;
-  lastLogin?: string;
+  avatar?: string | null;
+  role: string;     // Always "admin" for this console
+  permissions: string[];
 }
 
 interface AuthContextType {
@@ -40,7 +38,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [user, setUser] = useState<User | null>(null);
   const router = useRouter();
 
-  // Check authentication status on mount
   useEffect(() => {
     checkAuthStatus();
   }, []);
@@ -55,14 +52,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       if (response.ok) {
         const data = await response.json();
         setIsAuthenticated(true);
-        // Normalize role to string (use role ID for consistency with existing code)
-        const normalizedUser = {
-          ...data.user,
-          role: typeof data.user.role === 'string' 
-            ? data.user.role 
-            : data.user.role?.id || data.user.role?.name || null
-        };
-        setUser(normalizedUser);
+        setUser(data.user);
       } else {
         setIsAuthenticated(false);
         setUser(null);
@@ -80,9 +70,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       const response = await fetch("/api/login", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ email, password }),
       });
@@ -91,14 +79,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       if (response.ok) {
         setIsAuthenticated(true);
-        // Normalize role to string (use role ID for consistency with existing code)
-        const normalizedUser = {
-          ...data.user,
-          role: typeof data.user.role === 'string' 
-            ? data.user.role 
-            : data.user.role?.id || data.user.role?.name || null
-        };
-        setUser(normalizedUser);
+        setUser(data.user);
         return { success: true };
       } else {
         return { success: false, error: data.error || "Login failed" };
@@ -124,12 +105,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  // Helper function to check if user has a specific permission
   const hasPermission = (permission: string): boolean => {
-    if (!user || !user.permissions) return false;
-    // Check for wildcard permission (super_admin)
-    if (user.permissions.includes('*')) return true;
-    // Check for specific permission
+    if (!user) return false;
+    if (user.permissions.includes("*")) return true;
+    const [category] = permission.split(":");
+    if (user.permissions.includes(`${category}:*`)) return true;
     return user.permissions.includes(permission);
   };
 
@@ -147,4 +127,4 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       {children}
     </AuthContext.Provider>
   );
-}; 
+};

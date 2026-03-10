@@ -1,71 +1,78 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { jwtVerify } from "jose";
+
+const ACCESS_TOKEN_COOKIE = "nhost_access_token";
+
+const PROTECTED_ROUTES = [
+  "/dashboard",
+  "/customers",
+  "/payments",
+  "/transfers",
+  "/beneficiaries",
+  "/settings",
+  "/reports",
+  "/properties",
+  "/payment-intents",
+  "/user-management",
+  "/media-library",
+];
+
+function getJwtSecret(): Uint8Array {
+  const secret = process.env.NHOST_JWT_SECRET;
+  if (!secret) throw new Error("NHOST_JWT_SECRET is not set");
+  return new TextEncoder().encode(secret);
+}
+
+function hasAdminRole(payload: Record<string, unknown>): boolean {
+  const claims = payload["https://hasura.io/jwt/claims"] as
+    | Record<string, unknown>
+    | undefined;
+  const allowedRoles = (claims?.["x-hasura-allowed-roles"] as string[]) ?? [];
+  return allowedRoles.includes("admin");
+}
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  
-  // Get session cookie
-  const sessionCookie = request.cookies.get("admin_session");
-  const sessionToken = sessionCookie?.value;
 
-  // Define protected routes
-  const protectedRoutes = [
-    "/dashboard",
-    "/customers",
-    "/payments",
-    "/transfers",
-    "/beneficiaries",
-    "/settings",
-    "/reports",
-    "/properties",
-    "/payment-intents",
-    "/user-management",
-    "/media-library",
-  ];
+  const accessToken = request.cookies.get(ACCESS_TOKEN_COOKIE)?.value;
 
-  // Check if the current path is protected
-  const isProtectedRoute = protectedRoutes.some(route => 
+  const isProtectedRoute = PROTECTED_ROUTES.some((route) =>
     pathname.startsWith(route)
   );
 
-  // If accessing protected route, validate session
   if (isProtectedRoute) {
-    if (!sessionToken) {
+    if (!accessToken) {
       return NextResponse.redirect(new URL("/signin", request.url));
     }
 
-    // Validate session with database
     try {
-      const validationResponse = await fetch(
-        new URL("/api/auth/check", request.url).toString(),
-        {
-          headers: {
-            Cookie: `admin_session=${sessionToken}`,
-          },
-        }
-      );
+      const { payload } = await jwtVerify(accessToken, getJwtSecret());
 
-      if (!validationResponse.ok) {
+      if (!hasAdminRole(payload as Record<string, unknown>)) {
         const response = NextResponse.redirect(new URL("/signin", request.url));
-        response.cookies.delete("admin_session");
+        response.cookies.delete(ACCESS_TOKEN_COOKIE);
         return response;
       }
-    } catch (error) {
-      console.error("Middleware validation error:", error);
+    } catch {
+      // Token is invalid or expired — redirect to /signin; the client's
+      // AuthContext will attempt a refresh via /api/auth/check on next load.
       const response = NextResponse.redirect(new URL("/signin", request.url));
-      response.cookies.delete("admin_session");
+      response.cookies.delete(ACCESS_TOKEN_COOKIE);
       return response;
     }
   }
 
-  // If accessing signin while authenticated, redirect to dashboard
-  if (pathname === "/signin" && sessionToken) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
-  }
-
-  // Redirect root to dashboard if authenticated
-  if (pathname === "/" && sessionToken) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+  // Redirect authenticated users away from /signin and /
+  if ((pathname === "/signin" || pathname === "/") && accessToken) {
+    try {
+      const { payload } = await jwtVerify(accessToken, getJwtSecret());
+      if (hasAdminRole(payload as Record<string, unknown>)) {
+        return NextResponse.redirect(new URL("/dashboard", request.url));
+      }
+    } catch {
+      // Expired/invalid token — let them through to /signin to re-authenticate
+    }
   }
 
   return NextResponse.next();
