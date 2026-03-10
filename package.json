@@ -27,6 +27,7 @@
     "graphql": "^16.11.0",
     "graphql-request": "^7.2.0",
     "jose": "^6.2.1",
+    "lucide-react": "^0.577.0",
     "next": "15.2.3",
     "react": "^19.0.0",
     "react-apexcharts": "^1.7.0",
