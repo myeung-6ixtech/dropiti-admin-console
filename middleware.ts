@@ -35,6 +35,11 @@ function hasAdminRole(payload: Record<string, unknown>): boolean {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Never run auth logic or redirects on API routes (avoids ERR_TOO_MANY_REDIRECTS on fetch)
+  if (pathname.startsWith("/api")) {
+    return NextResponse.next();
+  }
+
   const accessToken = request.cookies.get(ACCESS_TOKEN_COOKIE)?.value;
 
   const isProtectedRoute = PROTECTED_ROUTES.some((route) =>
@@ -56,7 +61,7 @@ export async function middleware(request: NextRequest) {
       }
     } catch {
       // Token is invalid or expired — redirect to /signin; the client's
-      // AuthContext will attempt a refresh via /api/auth/check on next load.
+      // AuthContext will attempt a refresh via /api/v1/auth/check on next load.
       const response = NextResponse.redirect(new URL("/signin", request.url));
       response.cookies.delete(ACCESS_TOKEN_COOKIE);
       return response;

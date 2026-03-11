@@ -34,8 +34,6 @@ const nextConfig: NextConfig = {
     
     return config;
   },
-  // Turbopack configuration (empty to silence error, we use webpack instead)
-  turbopack: {},
   async headers() {
     return [
       {

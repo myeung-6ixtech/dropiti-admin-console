@@ -1,18 +1,46 @@
 "use client";
-import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { RealEstatePropertyServiceByUuid } from '@/app/graphql/services/realEstatePropertyServiceByUuid';
-import { RealEstateProperty, RealEstatePropertyInsertInput } from '@/app/graphql/types';
-import Button from '@/components/ui/button/Button';
-import { useToast } from '@/context/ToastContext';
-import { MediaLibraryPickerDialog } from '@/components/ui/media-library-picker-dialog';
+import React, { useState, useEffect, useCallback } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { RealEstateProperty, RealEstatePropertyInsertInput } from "@/app/graphql/types";
+import Button from "@/components/ui/button/Button";
+import { useToast } from "@/context/ToastContext";
+import { MediaLibraryPickerDialog } from "@/components/ui/media-library-picker-dialog";
 import {
   BasicInfoSection,
   PropertyDetailsSection,
   AddressSection,
   AmenitiesSection,
   PhotosSection,
-} from '@/components/properties/shared/PropertyFormSections';
+} from "@/components/properties/shared/PropertyFormSections";
+
+/** Map API get-property-by-uuid property to form data shape */
+function apiPropertyToFormData(apiProperty: Record<string, unknown>): Partial<RealEstatePropertyInsertInput> {
+  const amenities = apiProperty.amenities;
+  const amenitiesObj =
+    Array.isArray(amenities)
+      ? { additionals: amenities as string[] }
+      : (amenities as RealEstatePropertyInsertInput["amenities"]) || {};
+  return {
+    title: String(apiProperty.title ?? ""),
+    description: String(apiProperty.description ?? ""),
+    property_type: String(apiProperty.property_type ?? ""),
+    rental_space: String(apiProperty.rental_space ?? ""),
+    address: (apiProperty.address as RealEstatePropertyInsertInput["address"]) || {},
+    show_specific_location: Boolean(apiProperty.show_specific_location),
+    gross_area_size: apiProperty.gross_area_size as number | undefined,
+    gross_area_size_unit: String(apiProperty.gross_area_size_unit ?? "sqft"),
+    num_bedroom: Number(apiProperty.num_bedroom ?? 0),
+    num_bathroom: Number(apiProperty.num_bathroom ?? 0),
+    furnished: String(apiProperty.furnished ?? "none"),
+    pets_allowed: Boolean(apiProperty.pets_allowed),
+    amenities: amenitiesObj,
+    display_image: String(apiProperty.display_image ?? ""),
+    uploaded_images: (apiProperty.uploaded_images as string[]) || [],
+    rental_price: Number(apiProperty.rental_price ?? 0),
+    rental_price_currency: String(apiProperty.rental_price_currency ?? "HKD"),
+    availability_date: String(apiProperty.availability_date ?? ""),
+  };
+}
 
 // Main Property Edit Page Component
 const PropertyEditPage: React.FC = () => {
@@ -30,46 +58,45 @@ const PropertyEditPage: React.FC = () => {
 
   useEffect(() => {
     const fetchProperty = async () => {
+      if (!propertyId) return;
       try {
         setLoading(true);
-        const fetchedProperty = await RealEstatePropertyServiceByUuid.getRealEstatePropertyByUuid(propertyId);
-        
-        if (fetchedProperty) {
-          setProperty(fetchedProperty);
-          setFormData({
-            title: fetchedProperty.title,
-            description: fetchedProperty.description,
-            property_type: fetchedProperty.property_type,
-            rental_space: fetchedProperty.rental_space,
-            address: fetchedProperty.address,
-            show_specific_location: fetchedProperty.show_specific_location,
-            gross_area_size: fetchedProperty.gross_area_size,
-            gross_area_size_unit: fetchedProperty.gross_area_size_unit,
-            num_bedroom: fetchedProperty.num_bedroom,
-            num_bathroom: fetchedProperty.num_bathroom,
-            furnished: fetchedProperty.furnished,
-            pets_allowed: fetchedProperty.pets_allowed,
-            amenities: fetchedProperty.amenities,
-            display_image: fetchedProperty.display_image,
-            uploaded_images: fetchedProperty.uploaded_images,
-            rental_price: fetchedProperty.rental_price,
-            rental_price_currency: fetchedProperty.rental_price_currency,
-            availability_date: fetchedProperty.availability_date,
-          });
+        setError(null);
+        const res = await fetch(
+          `/api/v1/properties/get-property-by-uuid?property_uuid=${encodeURIComponent(propertyId)}`,
+          { credentials: "include" }
+        );
+        const json = await res.json();
+
+        if (!res.ok || !json.success) {
+          setError(json.error || "Property not found");
+          setProperty(null);
+          return;
+        }
+
+        const apiProperty = json.data?.property;
+        if (apiProperty) {
+          const form = apiPropertyToFormData(apiProperty);
+          setFormData(form);
+          setProperty({
+            id: String(apiProperty.id ?? ""),
+            property_uuid: String(apiProperty.property_uuid ?? ""),
+            landlord_firebase_uid: "",
+            ...form,
+          } as RealEstateProperty);
         } else {
-          setError('Property not found');
+          setError("Property not found");
+          setProperty(null);
         }
       } catch (err) {
-        console.error('Error fetching property:', err);
-        setError(err instanceof Error ? err.message : 'Failed to fetch property');
+        setError(err instanceof Error ? err.message : "Failed to fetch property");
+        setProperty(null);
       } finally {
         setLoading(false);
       }
     };
 
-    if (propertyId) {
-      fetchProperty();
-    }
+    fetchProperty();
   }, [propertyId]);
 
   const handleInputChange = (field: string, value: unknown) => {
@@ -123,29 +150,26 @@ const PropertyEditPage: React.FC = () => {
 
   const handleSave = async () => {
     try {
-      setSaving(true);      
-      // Show a loading toast immediately
-      showToast('info', 'Updating property...');
-      
-      const updatedProperty = await RealEstatePropertyServiceByUuid.updateRealEstatePropertyByUuid(propertyId, formData);
-      
-      console.log('Update result:', updatedProperty);
-      
-      if (updatedProperty) {
-        console.log('Property updated successfully, showing success toast...');
-        showToast('success', 'Property has successfully been updated!');
-        
-        // Redirect immediately after showing success toast
-        console.log('Redirecting to property detail page...');
-        router.push(`/dashboard/properties/${propertyId}`);
-      } else {
-        console.log('Update returned null, throwing error...');
-        throw new Error('Failed to update property - no data returned');
+      setSaving(true);
+      showToast("info", "Updating property...");
+
+      const res = await fetch("/api/v1/properties/update-property", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ id: propertyId, updates: formData }),
+      });
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || "Failed to update property");
       }
+
+      showToast("success", "Property has successfully been updated!");
+      router.push(`/dashboard/properties/${propertyId}`);
     } catch (err) {
-      console.error('Error updating property:', err);
-      setError(err instanceof Error ? err.message : 'Failed to update property');
-      showToast('error', 'Failed to update property. Please try again.');
+      setError(err instanceof Error ? err.message : "Failed to update property");
+      showToast("error", "Failed to update property. Please try again.");
     } finally {
       setSaving(false);
     }

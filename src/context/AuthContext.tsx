@@ -1,6 +1,5 @@
 "use client";
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 
 interface User {
   id: string;       // Nhost user UUID
@@ -36,7 +35,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
-  const router = useRouter();
 
   useEffect(() => {
     checkAuthStatus();
@@ -44,7 +42,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const checkAuthStatus = async () => {
     try {
-      const response = await fetch("/api/auth/check", {
+      const response = await fetch("/api/v1/auth/check", {
         method: "GET",
         credentials: "include",
       });
@@ -82,7 +80,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const login = async (email: string, password: string) => {
     try {
-      const response = await fetch("/api/login", {
+      const response = await fetch("/api/v1/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -106,7 +104,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const logout = async () => {
     try {
-      await fetch("/api/auth/logout", {
+      await fetch("/api/v1/auth/logout", {
         method: "POST",
         credentials: "include",
       });

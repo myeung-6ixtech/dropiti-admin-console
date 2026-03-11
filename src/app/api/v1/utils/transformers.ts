@@ -69,6 +69,7 @@ export function transformProperty(property: RealEstateProperty) {
     location: formatLocation(property.address),
     address: property.address,
     price: property.rental_price || 0,
+    priceCurrency: (property as { rental_price_currency?: string }).rental_price_currency || 'HKD',
     bedrooms: property.num_bedroom || 0,
     bathrooms: property.num_bathroom || 0,
     imageUrl: property.display_image || '',

@@ -1,9 +1,41 @@
 "use client";
-import React, { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { RealEstatePropertyServiceByUuid } from '@/app/graphql/services/realEstatePropertyServiceByUuid';
-import { RealEstateProperty } from '@/app/graphql/types';
-import Button from '@/components/ui/button/Button';
+import React, { useState, useEffect } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { RealEstateProperty } from "@/app/graphql/types";
+import Button from "@/components/ui/button/Button";
+
+/** Map API get-property-by-uuid response to shape expected by detail cards */
+function apiPropertyToCardShape(apiProperty: Record<string, unknown>): RealEstateProperty {
+  const amenities = apiProperty.amenities;
+  const amenitiesObj =
+    Array.isArray(amenities)
+      ? { additionals: amenities as string[] }
+      : (amenities as RealEstateProperty["amenities"]) || {};
+  return {
+    id: String(apiProperty.id ?? ""),
+    property_uuid: String(apiProperty.property_uuid ?? ""),
+    landlord_firebase_uid: "",
+    title: String(apiProperty.title ?? ""),
+    description: String(apiProperty.description ?? ""),
+    created_at: String(apiProperty.created_at ?? ""),
+    property_type: String(apiProperty.property_type ?? ""),
+    rental_space: String(apiProperty.rental_space ?? ""),
+    address: (apiProperty.address as RealEstateProperty["address"]) || {},
+    show_specific_location: true,
+    gross_area_size: apiProperty.gross_area_size as number | undefined,
+    gross_area_size_unit: String(apiProperty.gross_area_size_unit ?? "sqft"),
+    num_bedroom: Number(apiProperty.num_bedroom ?? 0),
+    num_bathroom: Number(apiProperty.num_bathroom ?? 0),
+    furnished: String(apiProperty.furnished ?? "none"),
+    pets_allowed: Boolean(apiProperty.pets_allowed),
+    amenities: amenitiesObj,
+    display_image: String(apiProperty.display_image ?? ""),
+    uploaded_images: (apiProperty.uploaded_images as string[]) || [],
+    rental_price: Number(apiProperty.rental_price ?? 0),
+    rental_price_currency: String(apiProperty.rental_price_currency ?? "HKD"),
+    availability_date: String(apiProperty.availability_date ?? ""),
+  };
+}
 
 // Property Basic Info Card Component
 const PropertyBasicInfoCard: React.FC<{ property: RealEstateProperty; onEdit: () => void }> = ({ property, onEdit }) => {
@@ -331,30 +363,38 @@ const PropertyDetailPage: React.FC = () => {
 
   useEffect(() => {
     const fetchProperty = async () => {
+      if (!propertyId) return;
       try {
         setLoading(true);
-        console.log('Fetching property with UUID:', propertyId);
-        
-        const property = await RealEstatePropertyServiceByUuid.getRealEstatePropertyByUuid(propertyId);
-        
-        if (property) {
-          console.log('Property found by UUID:', property);
-          setProperty(property);
+        setError(null);
+        const res = await fetch(
+          `/api/v1/properties/get-property-by-uuid?property_uuid=${encodeURIComponent(propertyId)}`,
+          { credentials: "include" }
+        );
+        const json = await res.json();
+
+        if (!res.ok || !json.success) {
+          setError(json.error || "Property not found");
+          setProperty(null);
+          return;
+        }
+
+        const apiProperty = json.data?.property;
+        if (apiProperty) {
+          setProperty(apiPropertyToCardShape(apiProperty));
         } else {
-          console.log('Property not found by UUID');
-          setError('Property not found');
+          setError("Property not found");
+          setProperty(null);
         }
       } catch (err) {
-        console.error('Error fetching property:', err);
-        setError(err instanceof Error ? err.message : 'Failed to fetch property');
+        setError(err instanceof Error ? err.message : "Failed to fetch property");
+        setProperty(null);
       } finally {
         setLoading(false);
       }
     };
 
-    if (propertyId) {
-      fetchProperty();
-    }
+    fetchProperty();
   }, [propertyId]);
 
   const handleEdit = () => {

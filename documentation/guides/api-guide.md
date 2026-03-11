@@ -1,13 +1,13 @@
 # Dropiti API Guide
 
-Complete API documentation for implementing the Dropiti API in another application.
+Complete API documentation for implementing the Dropiti API in another application. The API is built on Next.js App Router, Nhost (auth), and Hasura (GraphQL over Postgres).
 
 ## Table of Contents
 
 1. [Overview](#overview)
 2. [Authentication](#authentication)
 3. [Base URL & Environment Setup](#base-url--environment-setup)
-4. [GraphQL Endpoint](#graphql-endpoint)
+4. [GraphQL (Server-Side)](#graphql-server-side)
 5. [REST API Endpoints](#rest-api-endpoints)
    - [Properties](#properties)
    - [Offers](#offers)
@@ -19,135 +19,121 @@ Complete API documentation for implementing the Dropiti API in another applicati
    - [Upload](#upload)
 6. [Error Handling](#error-handling)
 7. [Data Models](#data-models)
+8. [Implementation Notes](#implementation-notes)
 
 ---
 
 ## Overview
 
-The Dropiti API is built on Next.js 13+ App Router and uses:
-- **GraphQL** for data queries and mutations (via Hasura)
-- **REST API** endpoints for specific operations
-- **NextAuth.js** for authentication
-- **Firebase** for user authentication
+The Dropiti API uses:
+
+- **Nhost** for authentication (email/password and Google OAuth). User identity is the Nhost user UUID (`auth.users.id`), which is stored as `nhost_user_id` in the app database.
+- **Hasura** (GraphQL) over Postgres for data. All Hasura access from the app is server-side only, using the Hasura admin secret.
+- **REST** routes under `/api/v1/*` for operations that the Next.js app (or an external client) calls. These routes run on the server and call Hasura internally.
+
+**Important:** All user identifiers in this API are **Nhost user UUIDs** (the same as `auth.users.id` and `real_estate.user.nhost_user_id`). There is no Firebase; legacy names like “get-user-by-uuid” refer to lookup by this Nhost UUID.
 
 ### API Version
-- Current Version: `v1.0.0`
+
+- Current Version: `v1`
 - Base Path: `/api/v1`
 
 ---
 
 ## Authentication
 
-### NextAuth.js Configuration
+Authentication is handled by **Nhost**. The front-end app uses the Nhost client (`@nhost/nextjs`) and session cookies. For server-to-server or external clients:
 
-The API uses NextAuth.js with the following providers:
-- **Credentials Provider** (Email/Password via Firebase)
-- **Google OAuth Provider**
+- **Same-origin (Next.js app):** Requests are made to `/api/v1/*` with the browser’s cookies; the session is established by Nhost.
+- **External client:** You must establish a Nhost session (e.g. `nhost.auth.signIn`) and send the session token (e.g. in `Authorization: Bearer <access_token>`) if your backend validates it. The current API routes do not always enforce auth on every endpoint; they assume the caller is the Next.js app or a trusted service.
 
-### Session Management
-- **Strategy**: JWT
-- **Max Age**: 30 days (default), 90 days (with "Remember Me")
-- **Cookie**: `next-auth.session-token`
+For full auth flow, session handling, and the link between `auth.users` and `real_estate.user`, see **[Nhost Migration & Auth Architecture](../docs/nhost-migration.md)**.
 
-### Authentication Headers
+### User identity in API
 
-For authenticated requests, include the session cookie or Authorization header:
+- **`userId` / `nhost_user_id` / `id` (user):** Always the Nhost user UUID (same as `auth.users.id`).
+- **`landlord_user_id` / `initiator_user_id` / `recipient_user_id` / `sender_user_id`:** In the database these store the same Nhost UUID (as text or uuid depending on table). Use the Nhost user ID in all requests.
 
-```http
-Authorization: Bearer <session_token>
-```
+### Session auth (v1)
 
-Or use cookies:
-```http
-Cookie: next-auth.session-token=<token>
-```
+Session endpoints live under `/api/v1/auth/`. Both the admin and client apps use these paths.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| **POST** | `/api/v1/auth/login` | Sign in with email/password. Body: `{ email, password }`. Sets HTTP-only session cookies on success. Returns `{ success, user }` or `{ error }`. |
+| **GET** | `/api/v1/auth/check` | Validate current session (cookies). Returns `{ authenticated, user? }` or 401. May refresh tokens if access token expired. |
+| **POST** | `/api/v1/auth/logout` | Sign out; revokes refresh token and clears session cookies. Returns `{ success }`. |
+
+The admin app requires the user to have the `admin` role in Nhost; login returns 403 if the user does not have that role.
 
 ---
 
 ## Base URL & Environment Setup
 
-### Required Environment Variables
+### Base URL
+
+- **Same app:** `https://your-domain.com/api/v1` or relative `/api/v1`.
+- **External client:** Use the full origin, e.g. `https://dropiti.com/api/v1`.
+
+### Required Environment Variables (Server)
+
+These are used by the Next.js API routes and must be set in the deployment environment (e.g. Vercel).
 
 ```env
-# Hasura Configuration
-HASURA_ENDPOINT=https://your-hasura-instance.hasura.app/v1/graphql
-HASURA_ADMIN_SECRET=your-admin-secret
+# Hasura (server-only)
+HASURA_ENDPOINT=https://<project>.hasura.<region>.nhost.run/v1/graphql
+HASURA_ADMIN_SECRET=<your-admin-secret>
 
-# NextAuth Configuration
-NEXTAUTH_SECRET=your-nextauth-secret
-NEXTAUTH_URL=http://localhost:3000
+# Nhost (client + server for app)
+NEXT_PUBLIC_NHOST_SUBDOMAIN=<project>
+NEXT_PUBLIC_NHOST_REGION=<region>
 
-# Firebase Configuration (for authentication)
-NEXT_PUBLIC_FIREBASE_API_KEY=your-firebase-api-key
-NEXT_PUBLIC_FIREBASE_GOOGLE_CLIENT_ID=your-google-client-id
-NEXT_PUBLIC_FIREBASE_GOOGLE_CLIENT_SECRET=your-google-client-secret
+# Optional but recommended
+NEXT_PUBLIC_SITE_URL=https://your-domain.com
 
-# S3 Configuration (for file uploads)
-S3_BUCKET_NAME=your-bucket-name
-S3_BUCKET_ACCESS_KEY=your-access-key
-S3_BUCKET_SECRET_KEY=your-secret-key
-S3_BUCKET_AWS_REGION=ap-northeast-2
-S3_BUCKET_DOMAIN_URL=https://your-domain.com
+# Chat encryption (server-only)
+CHAT_ENCRYPTION_KEY=<hex-key>
+
+# S3 (server-only, for uploads)
+S3_BUCKET_NAME=
+S3_BUCKET_ACCESS_KEY=
+S3_BUCKET_SECRET_KEY=
+S3_BUCKET_AWS_REGION=
+S3_BUCKET_DOMAIN_URL=
 ```
 
 ---
 
-## GraphQL Endpoint
+## GraphQL (Server-Side)
 
-### Endpoint
-```
-POST /api/graphql
-```
+The app does **not** expose the Hasura endpoint or admin secret to the browser. All Hasura calls go through the Next.js server.
 
-### Request Format
+### Server client (API routes)
 
-```json
-{
-  "query": "query GetUser($id: String!) { real_estate_user(where: { firebase_uid: { _eq: $id } }) { uuid display_name email } }",
-  "variables": {
-    "id": "user-firebase-uid"
-  }
-}
-```
+**File (reference):** `src/app/api/graphql/serverClient.ts`
 
-### Headers
-
-```http
-Content-Type: application/json
-x-hasura-admin-secret: <admin-secret>
-Authorization: Bearer <token> (optional)
-```
-
-### Response Format
-
-```json
-{
-  "data": {
-    "real_estate_user": [...]
-  },
-  "errors": [] // if any
-}
-```
-
-### Client Implementation
-
-**Server-side (for API routes):**
 ```typescript
 import { executeQuery, executeMutation } from '@/app/api/graphql/serverClient';
 
-// Query
-const data = await executeQuery(query, variables);
-
-// Mutation
-const result = await executeMutation(mutation, variables);
+const data = await executeQuery(GraphQL_QUERY_STRING, variables);
+const result = await executeMutation(GraphQL_MUTATION_STRING, variables);
 ```
 
-**Client-side:**
-```typescript
-import { hasuraClient } from '@/app/api/graphql/client';
+- **Endpoint:** `HASURA_ENDPOINT`
+- **Headers:** `Content-Type: application/json`, `x-hasura-admin-secret: HASURA_ADMIN_SECRET`
 
-const data = await hasuraClient.request(query, variables);
-```
+If you integrate from another backend, point it at your Hasura URL and use your own admin secret; do not expose the admin secret to the client.
+
+### Variable types (Hasura)
+
+After the Firebase → Nhost migration, some columns remain `text` and others are `uuid`. Use the type Hasura expects:
+
+- **`nhost_user_id`** (e.g. in `real_estate.user`): `uuid!`
+- **`landlord_user_id`** (e.g. in `real_estate.property_listing`): `uuid!`
+- **`initiator_user_id` / `recipient_user_id`** (e.g. in `real_estate.offer`): `String!`
+- **`user_id`** in chat/tenant tables: check schema (often `String`)
+
+See **[Column Type Reference](../docs/nhost-migration.md#column-type-reference)** in the Nhost migration doc.
 
 ---
 
@@ -155,255 +141,111 @@ const data = await hasuraClient.request(query, variables);
 
 ### Properties
 
-#### 1. Get Listings
+#### 1. Get Listings  
 **GET** `/api/v1/properties/get-listings`
 
-**Query Parameters:**
-- `limit` (number, default: 10) - Number of results per page
-- `offset` (number, default: 0) - Pagination offset
-- `minPrice` (number, optional) - Minimum rental price filter
-- `maxPrice` (number, optional) - Maximum rental price filter
-- `bedrooms` (number, optional) - Number of bedrooms filter
-- `type` (string, optional) - Property type filter
-- `landlord_firebase_uid` (string, optional) - Filter by landlord
+**Query parameters:**
 
-**Response:**
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": "1",
-      "property_uuid": "uuid-string",
-      "title": "Modern Downtown Apartment",
-      "description": "Beautiful 2-bedroom apartment...",
-      "location": "Downtown, City Center",
-      "address": { /* JSON address object */ },
-      "price": 2500,
-      "bedrooms": 2,
-      "bathrooms": 2,
-      "imageUrl": "https://...",
-      "details": {
-        "type": "apartment",
-        "furnished": "full",
-        "petsAllowed": false,
-        "parking": true
-      },
-      "amenities": ["WiFi", "Gym", "Pool"],
-      "minimumLease": 12,
-      "availableDate": "2024-01-01T00:00:00Z",
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2024-01-01T00:00:00Z"
-    }
-  ],
-  "pagination": {
-    "total": 100,
-    "limit": 10,
-    "offset": 0,
-    "hasMore": true
-  }
-}
-```
+| Parameter            | Type   | Default | Description                    |
+|----------------------|--------|---------|--------------------------------|
+| `limit`              | number | 10      | Results per page               |
+| `offset`             | number | 0       | Pagination offset              |
+| `location`           | string | —       | Location filter                |
+| `minPrice`           | number | —       | Min rental price               |
+| `maxPrice`           | number | —       | Max rental price               |
+| `bedrooms`           | number | —       | Number of bedrooms             |
+| `type`               | string | —       | Property type                  |
+| `landlord_user_id`   | string | —       | Filter by landlord (Nhost UUID)|
 
-#### 2. Get Property
-**GET** `/api/v1/properties/get-property?property_uuid=<uuid>`
+**Response:** `{ success, data[], pagination: { total, limit, offset, hasMore } }`
 
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "id": 1,
-    "property_uuid": "uuid-string",
-    "title": "Property Title",
-    "description": "Property description",
-    "address": { /* JSON address */ },
-    "location": "Formatted location string",
-    "rental_price": 2500,
-    "num_bedroom": 2,
-    "num_bathroom": 2,
-    "display_image": "https://...",
-    "uploaded_images": ["https://..."],
-    "property_type": "apartment",
-    "furnished": "full",
-    "pets_allowed": true,
-    "amenities": ["WiFi", "Gym"],
-    "availability_date": "2024-01-01",
-    "is_public": true,
-    "status": "published",
-    "created_at": "2024-01-01T00:00:00Z",
-    "updated_at": "2024-01-01T00:00:00Z"
-  }
-}
-```
+---
 
-#### 3. Get Property by UUID (with Landlord Info)
+#### 2. Get Property  
+**GET** `/api/v1/properties/get-property?id=<id>`
+
+Returns a single property by internal id.
+
+---
+
+#### 3. Get Property by UUID  
 **GET** `/api/v1/properties/get-property-by-uuid?property_uuid=<uuid>`
 
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "property": { /* property object */ },
-    "landlord": {
-      "id": "uuid",
-      "firebase_uid": "firebase-uid",
-      "name": "Landlord Name",
-      "email": "landlord@example.com",
-      "avatar": "https://...",
-      "verified": true,
-      "rating": 4.5,
-      "review_count": 10
-    }
-  }
-}
-```
+**Query parameters:** `property_uuid` (required).
 
-#### 4. Create Property
+**Response:** `{ success, data: { property, landlord? } }` — property and optional landlord info (e.g. `nhost_user_id`, `display_name`, `photo_url`, `email`).
+
+---
+
+#### 4. Create Property  
 **POST** `/api/v1/properties/create-property`
 
-**Request Body:**
-```json
-{
-  "title": "Property Title",
-  "description": "Property description",
-  "address": {
-    "country": "United States",
-    "state": "California",
-    "city": "San Francisco",
-    "district": "Downtown",
-    "building": "123 Main St, Apt 4B"
-  },
-  "price": 2500,
-  "bedrooms": 2,
-  "bathrooms": 2,
-  "photos": ["https://..."],
-  "details": {
-    "propertyType": "apartment",
-    "rentalSpace": "entire",
-    "furnished": "full",
-    "petsAllowed": true,
-    "grossArea": 1000
-  },
-  "amenities": ["WiFi", "Gym"],
-  "availableDate": "2024-01-01",
-  "ownerId": "firebase-uid",
-  "isDraft": false
-}
-```
+**Body:** Property payload including `title`, `description`, `address`, `price`, `bedrooms`, `bathrooms`, `photos`/`imageUrl`, `details`, `amenities`, `availableDate`, `ownerId` (Nhost user UUID), `isDraft` (boolean).
 
-**Response:**
-```json
-{
-  "success": true,
-  "data": { /* created property object */ },
-  "message": "Property created successfully"
-}
-```
+**Response:** `{ success, data, message }`
 
-#### 5. Update Property
+---
+
+#### 5. Update Property  
 **PUT** `/api/v1/properties/update-property`
 
-**Request Body:**
-```json
-{
-  "id": "property-uuid",
-  "updates": {
-    "title": "Updated Title",
-    "description": "Updated description",
-    "price": 2600,
-    "bedrooms": 3,
-    "status": "published"
-  }
-}
-```
+**Body:** `{ id: string, updates: { title?, description?, price?, status?, ... } }`
 
-**Response:**
-```json
-{
-  "success": true,
-  "data": { /* updated property object */ },
-  "message": "Property updated successfully"
-}
-```
+**Response:** `{ success, data, message }`
 
-#### 6. Get Drafts
-**GET** `/api/v1/properties/get-drafts?landlord_id=<firebase-uid>`
+---
 
-**Response:**
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": "1",
-      "property_uuid": "uuid",
-      "title": "Draft Title",
-      "status": "draft",
-      "completion_percentage": 50,
-      "last_saved_at": "2024-01-01T00:00:00Z"
-    }
-  ]
-}
-```
+#### 6. Get Drafts  
+**GET** `/api/v1/properties/get-drafts?landlord_id=<nhost_user_id>`
 
-#### 7. Publish Draft
+**Query parameters:** `landlord_id` (required) — Nhost user UUID of the landlord.
+
+**Response:** `{ success, data: [] }` — list of draft properties.
+
+---
+
+#### 7. Publish Draft  
 **POST** `/api/v1/properties/publish-draft`
 
-**Request Body:**
-```json
-{
-  "property_uuid": "uuid"
-}
-```
+**Body:** `{ property_uuid: string }`
 
-#### 8. Delete Draft
+---
+
+#### 8. Delete Draft  
 **DELETE** `/api/v1/properties/delete-draft?property_uuid=<uuid>`
 
-#### 9. Get Property Count by User
-**GET** `/api/v1/properties/get-property-count-by-user?landlordFirebaseUid=<firebase-uid>`
+---
 
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "count": 5
-  }
-}
-```
+#### 9. Get Property Count by User  
+**GET** `/api/v1/properties/get-property-count-by-user?landlordUserId=<nhost_user_id>`
+
+**Query parameters:** `landlordUserId` (required) — Nhost user UUID.
+
+**Response:** `{ success, data: { count }, message }`
 
 ---
 
 ### Offers
 
-#### 1. Get Offers
-**GET** `/api/v1/offers/get-offers?userId=<uuid>&type=<incoming|outgoing>&limit=10&offset=0`
+All user IDs in offer endpoints are **Nhost user UUIDs**.
 
-**Response:**
-```json
-{
-  "success": true,
-  "data": [ /* offer objects */ ],
-  "pagination": {
-    "total": 20,
-    "limit": 10,
-    "offset": 0,
-    "hasMore": true
-  }
-}
-```
+#### 1. Get Offers  
+**GET** `/api/v1/offers/get-offers?userId=<nhost_user_id>&type=<incoming|outgoing>&limit=10&offset=0`
 
-#### 2. Create Offer
+**Response:** `{ success, data[], pagination }`
+
+---
+
+#### 2. Create Offer  
 **POST** `/api/v1/offers/create-offer`
 
-**Request Body:**
+**Body:**
+
 ```json
 {
   "propertyId": "property-uuid",
-  "initiatorFirebaseUid": "tenant-firebase-uid",
-  "recipientFirebaseUid": "landlord-firebase-uid",
+  "initiatorUserId": "tenant-nhost-uuid",
+  "recipientUserId": "landlord-nhost-uuid",
   "proposingRentPrice": 2500,
   "numLeasingMonths": 12,
   "paymentFrequency": "monthly",
@@ -412,762 +254,368 @@ const data = await hasuraClient.request(query, variables);
 }
 ```
 
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "id": "1",
-    "offer_key": "offer_1234567890_abc123",
-    "property_uuid": "property-uuid",
-    "initiator_firebase_uid": "tenant-uid",
-    "recipient_firebase_uid": "landlord-uid",
-    "proposing_rent_price": 2500,
-    "offer_status": "pending",
-    "is_active": true,
-    "created_at": "2024-01-01T00:00:00Z"
-  }
-}
-```
+**Response:** `{ success, data: { id, offer_key, property_uuid, initiator_user_id, recipient_user_id, ... } }`
 
-#### 3. Accept Offer
+---
+
+#### 3. Accept Offer  
 **POST** `/api/v1/offers/accept-offer`
 
-**Request Body:**
-```json
-{
-  "offerId": 1,
-  "currentUserId": "firebase-uid"
-}
-```
+**Body:** `{ offerId: string, currentUserId: string }` — `currentUserId` is Nhost user UUID.
 
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "offerId": "1",
-    "offerKey": "offer_123",
-    "newStatus": "accepted",
-    "action": "RECIPIENT_ACCEPTED",
-    "bulkRejection": {
-      "rejectedOffersCount": 2,
-      "rejectedOffers": [...]
-    }
-  },
-  "message": "Offer accepted and deal finalized!",
-  "isFinalized": true
-}
-```
+---
 
-#### 4. Reject Offer
+#### 4. Reject Offer  
 **POST** `/api/v1/offers/reject-offer`
 
-**Request Body:**
-```json
-{
-  "offerId": 1,
-  "currentUserId": "firebase-uid",
-  "reason": "Price too low" // optional
-}
-```
+**Body:** `{ offerId, currentUserId, reason? }`
 
-#### 5. Counter Offer
+---
+
+#### 5. Counter Offer  
 **POST** `/api/v1/offers/counter-offer`
 
-**Request Body:**
-```json
-{
-  "offerId": 1,
-  "currentUserId": "firebase-uid",
-  "counterData": {
-    "rentPrice": 2600,
-    "numLeasingMonths": 12,
-    "paymentFrequency": "monthly",
-    "moveInDate": "2024-02-01",
-    "message": "Counter offer message", // optional
-    "reason": "Reason for counter" // optional
-  }
-}
-```
+**Body:** `{ offerId, currentUserId, counterData: { rentPrice?, numLeasingMonths?, paymentFrequency?, moveInDate?, message?, reason? } }`
 
-#### 6. Withdraw Offer
+---
+
+#### 6. Withdraw Offer  
 **POST** `/api/v1/offers/withdraw-offer`
 
-**Request Body:**
-```json
-{
-  "offerId": 1,
-  "currentUserId": "firebase-uid",
-  "reason": "Found another property" // optional
-}
-```
+**Body:** `{ offerId, currentUserId, reason? }`
 
-#### 7. Get Offers by ID
-**GET** `/api/v1/offers/get-offers-by-id?recipientFirebaseUid=<uid>&propertyUuid=<uuid>`
+---
 
-#### 8. Get Offers by Initiator
-**GET** `/api/v1/offers/get-offers-by-initiator?initiatorFirebaseUid=<uid>`
+#### 7. Get Offers by Recipient  
+**GET** `/api/v1/offers/get-offers-by-id?recipientUserId=<nhost_uuid>&propertyUuid=<uuid>` (optional)
 
-#### 9. Get Negotiation State
-**GET** `/api/v1/offers/get-negotiation-state?offerId=1&currentUserId=<uid>`
+**Query parameters:** `recipientUserId` (required), `propertyUuid` (optional).
 
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "offer": { /* offer object */ },
-    "negotiationState": {
-      "canAccept": true,
-      "canReject": true,
-      "canCounter": true,
-      "canWithdraw": false
-    }
-  }
-}
-```
+---
 
-#### 10. Get Offer Actions
-**GET** `/api/v1/offers/get-offer-actions?offerId=1`
+#### 8. Get Offers by Initiator  
+**GET** `/api/v1/offers/get-offers-by-initiator?initiatorUserId=<nhost_uuid>`
 
-#### 11. Get Review Opportunities
-**GET** `/api/v1/offers/get-review-opportunities?user_id=<firebase-uid>`
+---
 
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "opportunities": [
-      {
-        "id": "1",
-        "offerId": "1",
-        "propertyUuid": "uuid",
-        "propertyTitle": "Property Title",
-        "otherPartyName": "User Name",
-        "otherPartyPhotoUrl": "https://...",
-        "reviewType": "tenant_to_landlord",
-        "reviewWindowEnd": "2024-01-15T00:00:00Z",
-        "status": "pending"
-      }
-    ]
-  }
-}
-```
+#### 9. Get Negotiation State  
+**GET** `/api/v1/offers/get-negotiation-state?offerId=<id>&currentUserId=<nhost_uuid>`
+
+**Response:** `{ success, data: { offer, negotiationState: { canAccept, canReject, canCounter, canWithdraw } } }`
+
+---
+
+#### 10. Get Offer Actions  
+**GET** `/api/v1/offers/get-offer-actions?offerId=<id>`
+
+---
+
+#### 11. Get Review Opportunities  
+**GET** `/api/v1/offers/get-review-opportunities?user_id=<nhost_uuid>`
+
+**Response:** `{ success, data: { opportunities: [] } }`
 
 ---
 
 ### Chat
 
-#### 1. Get Chat Rooms
-**GET** `/api/v1/chat/get-chat-rooms?userFirebaseUid=<uid>`
+All user IDs are **Nhost user UUIDs**. Chat messages are encrypted at rest; the API returns decrypted content.
 
-**Response:**
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": "participant-id",
-      "room_id": "room-uuid",
-      "user_firebase_uid": "user-uid",
-      "role": "tenant",
-      "joined_at": "2024-01-01T00:00:00Z",
-      "last_read_at": "2024-01-01T00:00:00Z",
-      "is_active": true,
-      "room": {
-        "id": "room-uuid",
-        "title": null,
-        "room_type": "direct",
-        "last_message_at": "2024-01-01T00:00:00Z"
-      },
-      "last_message": {
-        "content": "Hello",
-        "sender_firebase_uid": "sender-uid",
-        "created_at": "2024-01-01T00:00:00Z"
-      },
-      "other_participant": {
-        "room_id": "room-uuid",
-        "user_firebase_uid": "other-uid",
-        "role": "landlord",
-        "user_details": {
-          "display_name": "Other User",
-          "photo_url": "https://...",
-          "email": "other@example.com"
-        }
-      }
-    }
-  ]
-}
-```
+#### 1. Get Chat Rooms  
+**GET** `/api/v1/chat/get-chat-rooms?userId=<nhost_uuid>`
 
-#### 2. Get or Create Room
+**Response:** `{ success, data: [] }` — list of rooms with `room_id`, `user_id`, `role`, `room`, `last_message`, `other_participant` (with `user_details`).
+
+---
+
+#### 2. Get or Create Room  
 **POST** `/api/v1/chat/get-or-create-room`
 
-**Request Body:**
+**Body:**
+
 ```json
 {
-  "user1FirebaseUid": "user1-uid",
-  "user2FirebaseUid": "user2-uid",
+  "user1UserId": "nhost-uuid-1",
+  "user2UserId": "nhost-uuid-2",
   "user1Role": "tenant",
   "user2Role": "landlord"
 }
 ```
 
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "roomId": "room-uuid",
-    "room": {
-      "id": "room-uuid",
-      "room_type": "direct",
-      "created_at": "2024-01-01T00:00:00Z"
-    },
-    "isNew": true
-  }
-}
-```
+**Response:** `{ success, data: { roomId, room, isNew } }`
 
-#### 3. Get Room Messages
+---
+
+#### 3. Get Room Messages  
 **GET** `/api/v1/chat/get-room-messages?roomId=<uuid>&limit=50&offset=0`
 
-**Response:**
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": "message-id",
-      "content": "Message content (decrypted)",
-      "sender_firebase_uid": "sender-uid",
-      "status": "sent",
-      "created_at": "2024-01-01T00:00:00Z",
-      "message_type": "text",
-      "metadata": null
-    }
-  ]
-}
-```
+**Response:** `{ success, data: [] }` — messages with `id`, `content`, `sender_user_id`, `status`, `created_at`, `message_type`, `metadata`.
 
-#### 4. Send Message
+---
+
+#### 4. Send Message  
 **POST** `/api/v1/chat/send-message`
 
-**Request Body:**
+**Body:**
+
 ```json
 {
   "roomId": "room-uuid",
-  "senderFirebaseUid": "sender-uid",
-  "content": "Message content",
-  "messageType": "text", // optional, default: "text"
-  "metadata": null // optional
+  "senderUserId": "nhost-uuid",
+  "content": "Message text",
+  "messageType": "text",
+  "metadata": null
 }
 ```
 
-**Note:** Messages are encrypted before storage. Content is returned unencrypted to the client.
+**Response:** `{ success, data: { id, content, sender_user_id, status, created_at, ... } }`
 
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "id": "message-id",
-    "content": "Message content",
-    "sender_firebase_uid": "sender-uid",
-    "status": "sent",
-    "created_at": "2024-01-01T00:00:00Z",
-    "message_type": "text",
-    "metadata": null
-  }
-}
-```
+Rate limit: 20 messages per minute per user.
 
 ---
 
 ### Users
 
-#### 1. Create User
+All lookups are by **Nhost user UUID** (`auth.users.id` / `real_estate.user.nhost_user_id`).
+
+#### 1. Create User  
 **POST** `/api/v1/users/create-user`
 
-**Request Body:**
+**Body:**
+
 ```json
 {
-  "firebase_uid": "firebase-uid",
+  "nhost_user_id": "nhost-uuid",
   "display_name": "User Name",
   "email": "user@example.com",
-  "photo_url": "https://...", // optional
-  "auth_provider": "firebase" // optional, default: "firebase"
+  "photo_url": "https://...",
+  "auth_provider": "email"
 }
 ```
 
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "uuid": "user-uuid",
-    "firebase_uid": "firebase-uid",
-    "display_name": "User Name",
-    "email": "user@example.com",
-    "photo_url": "https://...",
-    "auth_provider": "firebase"
-  }
-}
-```
+`auth_provider`: `"email"` or `"google"`. Creates a row in `real_estate.user` if one does not exist (by `nhost_user_id` or `email`).
 
-#### 2. Get User by ID
-**GET** `/api/v1/users/get-user-by-id?firebase_uid=<uid>` or `?id=<uid>`
+**Response:** `{ success, data: { uuid, nhost_user_id, display_name, email, ... } }`
 
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "uuid": "user-uuid",
-    "firebase_uid": "firebase-uid",
-    "display_name": "User Name",
-    "email": "user@example.com",
-    "photo_url": "https://...",
-    "phone_number": "+1234567890",
-    "location": "City, Country",
-    "about": "About text",
-    "verified": true,
-    "rating": 4.5,
-    "review_count": 10
-  }
-}
-```
+---
 
-#### 3. Get User by UUID
-**GET** `/api/v1/users/get-user-by-uuid?uuid=<uuid>`
+#### 2. Get User by ID (by Nhost user ID)  
+**GET** `/api/v1/users/get-user-by-id?nhost_user_id=<uuid>` or `?id=<uuid>`
 
-#### 4. Update User
+Used for session/profile load. Returns full `real_estate.user` profile.
+
+**Response:** `{ success, data: { uuid, nhost_user_id, display_name, email, photo_url, ... } }`
+
+---
+
+#### 3. Get User by UUID (public profile)  
+**GET** `/api/v1/users/get-user-by-uuid?uuid=<nhost_uuid>` or `?id=<nhost_uuid>`
+
+Same as get-user-by-id: looks up by `nhost_user_id`. Used for public profile pages (e.g. `/user/[id]`).
+
+**Response:** `{ success, data: { ... } }`
+
+---
+
+#### 4. Update User  
 **PUT** `/api/v1/users/update-user`
 
-**Request Body:**
-```json
-{
-  "id": "firebase-uid",
-  "updates": {
-    "display_name": "New Name",
-    "phone_number": "+1234567890",
-    "location": "New Location",
-    "about": "New about text",
-    "languages": ["English", "Spanish"],
-    "preferences": { /* JSON object */ },
-    "notification_settings": { /* JSON object */ }
-  }
-}
-```
+**Body:** `{ id: string, updates: { display_name?, phone_number?, location?, about?, preferences?, notification_settings?, ... } }`
+
+`id` is the Nhost user UUID.
+
+**Response:** `{ success, data, message }`
 
 ---
 
 ### Reviews
 
-#### 1. Create Review
+#### 1. Create Review  
 **POST** `/api/v1/reviews/create-review`
 
-**Request Body:**
+**Body:**
+
 ```json
 {
-  "offerId": 1,
+  "offerId": "offer-id",
   "offerUuid": "offer-uuid",
-  "reviewType": "tenant_to_landlord", // or "landlord_to_tenant"
+  "reviewType": "tenant_to_landlord",
   "rating": 5,
   "comment": "Great experience!",
-  "reviewerId": "reviewer-firebase-uid",
-  "reviewedUserId": "reviewee-firebase-uid"
+  "reviewerId": "reviewer-nhost-uuid",
+  "revieweeUserId": "reviewee-nhost-uuid",
+  "propertyUuid": "property-uuid"
 }
 ```
 
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "review": {
-      "id": "1",
-      "review_uuid": "review-uuid",
-      "offer_uuid": "offer-uuid",
-      "review_type": "tenant_to_landlord",
-      "rating": 5,
-      "comment": "Great experience!",
-      "reviewer_firebase_uid": "reviewer-uid",
-      "reviewee_firebase_uid": "reviewee-uid",
-      "property_uuid": "property-uuid",
-      "is_public": true,
-      "is_verified": false,
-      "helpful_count": 0,
-      "created_at": "2024-01-01T00:00:00Z"
-    }
-  }
-}
-```
+**Response:** `{ success, data: { review } }`
 
-#### 2. Get Reviews by Property
+---
+
+#### 2. Get Reviews by Property  
 **GET** `/api/v1/reviews/get-reviews-by-property?propertyUuid=<uuid>&reviewType=<type>&limit=50&offset=0`
 
-**Response:**
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": "1",
-      "reviewUuid": "uuid",
-      "reviewerFirebaseUid": "uid",
-      "revieweeFirebaseUid": "uid",
-      "reviewType": "tenant_to_landlord",
-      "rating": 5,
-      "comment": "Great!",
-      "reviewer": {
-        "uuid": "uuid",
-        "displayName": "Reviewer Name",
-        "email": "reviewer@example.com",
-        "photoUrl": "https://..."
-      },
-      "reviewee": { /* similar structure */ }
-    }
-  ],
-  "total": 10
-}
-```
+**Response:** `{ success, data: [], total }` — reviews with reviewer/reviewee user details.
 
-#### 3. Get Reviews by User
-**GET** `/api/v1/reviews/get-reviews-by-user?userFirebaseUid=<uid>&reviewType=<type>&limit=50&offset=0`
+---
 
-#### 4. Update Review
-**PUT** `/api/v1/reviews/update-review`
+#### 3. Get Reviews by User  
+**GET** `/api/v1/reviews/get-reviews-by-user?userId=<nhost_uuid>&reviewType=<type>&limit=50&offset=0`
 
-#### 5. Delete Review
-**DELETE** `/api/v1/reviews/delete-review`
+---
 
-#### 6. Mark Helpful
-**POST** `/api/v1/reviews/mark-helpful`
+#### 4. Update Review  
+**PUT** `/api/v1/reviews/update-review?reviewUuid=<uuid>`
+
+**Body:** Update payload (e.g. `rating`, `comment`).
+
+---
+
+#### 5. Delete Review  
+**DELETE** `/api/v1/reviews/delete-review?reviewUuid=<uuid>`
+
+---
+
+#### 6. Mark Helpful  
+**POST** `/api/v1/reviews/mark-helpful?reviewUuid=<uuid>`
 
 ---
 
 ### Notifications
 
-#### 1. Get Notifications
-**GET** `/api/v1/notifications?userFirebaseUid=<uid>&isRead=<true|false>&category=<category>&limit=50&offset=0`
+All user IDs are **Nhost user UUIDs**.
 
-**Response:**
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": "notification-id",
-      "type": "offer_created",
-      "title": "New Offer Received",
-      "message": "You have received a new offer",
-      "recipient_firebase_uid": "uid",
-      "sender_firebase_uid": "uid",
-      "is_read": false,
-      "data": {
-        "offer_id": "1",
-        "property_title": "Property Title"
-      },
-      "created_at": "2024-01-01T00:00:00Z"
-    }
-  ]
-}
-```
+#### 1. Get Notifications  
+**GET** `/api/v1/notifications?userId=<nhost_uuid>&isRead=<true|false>&category=<category>&limit=50&offset=0`
 
-#### 2. Mark as Read
+**Response:** `{ success, data: [] }`
+
+---
+
+#### 2. Mark as Read  
 **POST** `/api/v1/notifications/mark-read`
 
-**Request Body:**
-```json
-{
-  "notificationId": "notification-id"
-}
-```
+**Body:** `{ notificationId: string }`
 
-#### 3. Mark All as Read
+---
+
+#### 3. Mark All as Read  
 **POST** `/api/v1/notifications/mark-all-read`
 
-#### 4. Archive Notification
+**Body:** `{ userId: string }`
+
+---
+
+#### 4. Archive  
 **POST** `/api/v1/notifications/archive`
 
-#### 5. Get Unread Count
-**GET** `/api/v1/notifications/unread-count?userFirebaseUid=<uid>`
+**Body:** `{ notificationId: string }`
 
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "count": 5
-  }
-}
-```
+---
+
+#### 5. Unread Count  
+**GET** `/api/v1/notifications/unread-count?userId=<nhost_uuid>`
+
+**Response:** `{ success, data: { count } }`
 
 ---
 
 ### Tenants
 
-#### 1. Get Tenant Profiles
-**GET** `/api/v1/tenants?status=active&limit=20&offset=0`
+#### 1. Get Tenant Profiles (list)  
+**GET** `/api/v1/tenants?limit=20&offset=0&budget_min=&budget_max=&location=&move_in_date=&property_type=`
 
-**Response:**
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": "1",
-      "tenant_uuid": "uuid",
-      "user_firebase_uid": "uid",
-      "tenant_listing_title": "Looking for 2BR Apartment",
-      "tenant_listing_description": "Description...",
-      "budget_min": 2000,
-      "budget_max": 3000,
-      "budget_currency": "HKD",
-      "preferred_property_types": ["apartment"],
-      "preferred_locations": ["Downtown"],
-      "preferred_move_in_date": "2024-01-01",
-      "user": {
-        "firebase_uid": "uid",
-        "display_name": "Tenant Name",
-        "photo_url": "https://...",
-        "email": "tenant@example.com"
-      }
-    }
-  ],
-  "pagination": {
-    "limit": 20,
-    "offset": 0,
-    "total": 50
-  }
-}
-```
+**Response:** `{ success, data: [], pagination }`
 
-#### 2. Get Tenant Profile
-**GET** `/api/v1/tenants/profile?userFirebaseUid=<uid>`
+---
+
+#### 2. Get Tenant Profile (single user)  
+**GET** `/api/v1/tenants/profile?nhost_user_id=<nhost_uuid>`
+
+**Response:** `{ success, data: { tenant_listing_title, tenant_listing_description, budget_min, budget_max, ... } }`
+
+---
+
+#### 3. Create or Update Tenant Profile (upsert)  
+**POST** `/api/v1/tenants/profile`
+
+**Body:** Must include `user_nhost_user_id` (Nhost user UUID) plus all tenant profile fields (e.g. `tenant_listing_title`, `tenant_listing_description`, `budget_min`, `budget_max`, `budget_currency`, `preferred_locations`, `privacy_settings`, etc.). If a row exists for that user, it is updated; otherwise a new row is inserted.
+
+**Response:** `{ success, data, message }`
+
+---
+
+#### 4. Update Tenant Profile (partial)  
+**PUT** `/api/v1/tenants/profile`
+
+**Body:** `{ user_nhost_user_id: string, updates: { ... } }`
+
+**Response:** `{ success, data, message }`
 
 ---
 
 ### Upload
 
-#### 1. Upload Files
+#### 1. Upload (generic)  
 **POST** `/api/v1/upload`
 
-**Form Data:**
-- `files` (File[]) - Array of files to upload
-- `category` (string, default: "images") - File category: "images", "documents", etc.
-- `uploadType` (string, default: "direct") - "direct" or "presigned"
+**Form data:** `files`, `category` (default `"images"`), `uploadType` (default `"direct"`).
 
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "uploadedFiles": [
-      {
-        "url": "https://...",
-        "key": "path/to/file.jpg",
-        "filename": "file.jpg",
-        "size": 102400,
-        "type": "image/jpeg"
-      }
-    ],
-    "totalFiles": 1,
-    "successfulUploads": 1,
-    "category": "images",
-    "uploadType": "direct"
-  }
-}
-```
+**Response:** `{ success, data: { uploadedFiles, totalFiles, successfulUploads, category, uploadType } }`
 
-#### 2. Generate Presigned URL
-**GET** `/api/v1/upload?filename=<name>&category=<category>&contentType=<type>`
+---
 
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "url": "https://presigned-url...",
-    "key": "path/to/file.jpg",
-    "fields": { /* S3 upload fields */ }
-  }
-}
-```
-
-#### 3. Direct S3 Upload
+#### 2. Direct S3 Upload  
 **POST** `/api/v1/upload/s3`
 
-**Form Data:**
-- `file` (File) - File to upload
-- `category` (string, default: "images") - File category
+**Form data:** `file`, `category` (default `"images"`).
 
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "url": "https://...",
-    "key": "path/to/file.jpg",
-    "filename": "file.jpg",
-    "size": 102400,
-    "type": "image/jpeg",
-    "uploadedAt": "2024-01-01T00:00:00Z"
-  }
-}
-```
+**Response:** `{ success, data: { url, key, filename, size, type, uploadedAt } }`
 
 ---
 
 ## Error Handling
 
-### Standard Error Response Format
+### Standard error response
 
 ```json
 {
   "error": "Error message",
-  "details": "Additional error details" // optional
+  "details": "Optional details"
 }
 ```
 
-### HTTP Status Codes
+### HTTP status codes
 
-- `200` - Success
-- `400` - Bad Request (validation errors, missing parameters)
-- `401` - Unauthorized (authentication required)
-- `403` - Forbidden (insufficient permissions)
-- `404` - Not Found (resource doesn't exist)
-- `409` - Conflict (duplicate resource, business rule violation)
-- `429` - Too Many Requests (rate limit exceeded)
-- `500` - Internal Server Error
-
-### Common Error Scenarios
-
-1. **Missing Required Fields**
-```json
-{
-  "error": "property_uuid is required"
-}
-```
-
-2. **Resource Not Found**
-```json
-{
-  "error": "Property not found"
-}
-```
-
-3. **Validation Error**
-```json
-{
-  "error": "Rating must be between 1 and 5"
-}
-```
-
-4. **Rate Limit Exceeded**
-```json
-{
-  "error": "Rate limit exceeded. Please wait a moment before sending more messages."
-}
-```
+- **200** — Success  
+- **400** — Bad request (validation, missing params)  
+- **401** — Unauthorized  
+- **403** — Forbidden  
+- **404** — Not found  
+- **409** — Conflict  
+- **429** — Rate limit (e.g. chat)  
+- **500** — Server error  
 
 ---
 
 ## Data Models
 
-### Property Model
+Identifiers are Nhost user UUIDs unless noted.
 
-```typescript
-interface Property {
-  id: string;
-  property_uuid: string;
-  title: string;
-  description: string;
-  address: AddressObject | string;
-  rental_price: number;
-  rental_price_currency: string;
-  num_bedroom: number;
-  num_bathroom: number;
-  property_type: string; // "apartment", "house", etc.
-  rental_space: string; // "entire", "shared", etc.
-  furnished: string; // "full", "partial", "non-furnished"
-  pets_allowed: boolean;
-  amenities: string[];
-  display_image: string;
-  uploaded_images: string[];
-  availability_date: string;
-  is_public: boolean;
-  status: "draft" | "published" | "archived" | "expired";
-  landlord_firebase_uid: string;
-  created_at: string;
-  updated_at: string;
-}
-```
-
-### Offer Model
-
-```typescript
-interface Offer {
-  id: string;
-  offer_key: string;
-  property_uuid: string;
-  initiator_firebase_uid: string;
-  recipient_firebase_uid: string;
-  proposing_rent_price: number;
-  proposing_rent_price_currency: string;
-  num_leasing_months: number;
-  payment_frequency: string; // "monthly", "quarterly", etc.
-  move_in_date: string;
-  offer_status: "pending" | "tentatively_accepted" | "accepted" | "rejected" | "countered" | "withdrawn" | "expired" | "completed";
-  is_active: boolean;
-  current_rent_price?: number;
-  current_rent_price_currency?: string;
-  current_num_leasing_months?: number;
-  current_payment_frequency?: string;
-  current_move_in_date?: string;
-  negotiation_round: number;
-  last_action_by: "initiator" | "recipient";
-  last_action_type: string;
-  final_rent_price?: number;
-  final_rent_price_currency?: string;
-  final_num_leasing_months?: number;
-  final_payment_frequency?: string;
-  final_move_in_date?: string;
-  final_accepted_at?: string;
-  final_accepted_by?: "initiator" | "recipient";
-  review_window_start?: string;
-  review_window_end?: string;
-  initiator_review_status?: "pending" | "completed";
-  recipient_review_status?: "pending" | "completed";
-  created_at: string;
-  updated_at: string;
-}
-```
-
-### User Model
+### User (`real_estate.user`)
 
 ```typescript
 interface User {
-  uuid: string;
-  firebase_uid: string;
+  uuid: string;           // Table PK (not used for routing)
+  nhost_user_id: string;  // auth.users.id — use this for URLs and API params
   display_name: string;
   email: string;
   photo_url?: string;
-  auth_provider: string;
+  auth_provider: 'email' | 'google';
   phone_number?: string;
   location?: string;
   about?: string;
-  education?: string;
   occupation?: string;
-  marital_status?: string;
-  languages?: string[];
-  verified: boolean;
-  rating: number;
-  review_count: number;
-  response_rate: number;
   preferences?: Record<string, unknown>;
   notification_settings?: Record<string, unknown>;
   privacy_settings?: Record<string, unknown>;
@@ -1176,38 +624,80 @@ interface User {
 }
 ```
 
-### Review Model
+### Property
+
+```typescript
+interface Property {
+  id: string;
+  property_uuid: string;
+  title: string;
+  description: string;
+  address: Record<string, unknown> | string;
+  location?: string;
+  rental_price: number;
+  rental_price_currency?: string;
+  num_bedroom: number;
+  num_bathroom: number;
+  landlord_user_id: string;  // Nhost UUID
+  status: 'draft' | 'published' | 'archived' | 'expired';
+  display_image?: string;
+  uploaded_images?: string[];
+  amenities?: string[];
+  created_at: string;
+  updated_at: string;
+}
+```
+
+### Offer
+
+```typescript
+interface Offer {
+  id: string;
+  offer_key: string;
+  property_uuid: string;
+  initiator_user_id: string;   // Nhost UUID (text in DB)
+  recipient_user_id: string;   // Nhost UUID (text in DB)
+  proposing_rent_price: number;
+  proposing_rent_price_currency?: string;
+  num_leasing_months: number;
+  payment_frequency: string;
+  move_in_date: string;
+  offer_status: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+```
+
+### Review
 
 ```typescript
 interface Review {
   id: string;
   review_uuid: string;
   offer_uuid: string;
-  review_type: "tenant_to_landlord" | "landlord_to_tenant";
-  rating: number; // 1-5
+  review_type: 'tenant_to_landlord' | 'landlord_to_tenant';
+  rating: number;
   comment: string;
-  reviewer_firebase_uid: string;
-  reviewee_firebase_uid: string;
+  reviewer_user_id: string;
+  reviewee_user_id: string;
   property_uuid: string;
-  is_public: boolean;
-  is_verified: boolean;
-  helpful_count: number;
   created_at: string;
   updated_at: string;
 }
 ```
 
-### Chat Message Model
+### Chat message
 
 ```typescript
 interface ChatMessage {
   id: string;
   room_id: string;
-  content: string; // Encrypted in storage, decrypted when retrieved
-  sender_firebase_uid: string;
-  status: "sent" | "delivered" | "read";
-  message_type: "text" | "image" | "file" | "system";
-  metadata?: Record<string, unknown>;
+  content: string;
+  sender_user_id: string;
+  status: string;
+  message_type: string;
+  metadata?: Record<string, unknown> | null;
   created_at: string;
 }
 ```
@@ -1216,112 +706,46 @@ interface ChatMessage {
 
 ## Implementation Notes
 
-### GraphQL Client Setup
+### Client (same app)
 
-**Server-side (API routes):**
-```typescript
-// src/app/api/graphql/serverClient.ts
-export const executeQuery = async <T = unknown>(
-  query: string, 
-  variables?: Record<string, unknown>
-): Promise<T> => {
-  const hasuraEndpoint = process.env.HASURA_ENDPOINT;
-  const hasuraAdminSecret = process.env.HASURA_ADMIN_SECRET;
-  
-  const response = await fetch(hasuraEndpoint, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-hasura-admin-secret': hasuraAdminSecret || '',
-    },
-    body: JSON.stringify({ query, variables }),
-  });
+The app uses an Axios client with `baseURL: '/api/v1'`. See `src/lib/api-client.ts` for the exact method signatures (e.g. `usersAPI.getUserByNhostUserId`, `propertiesAPI.getListings`, `offersAPI.createOffer`, `tenantsAPI.upsertTenantProfile` with `user_nhost_user_id`).
 
-  const result = await response.json();
-  
-  if (result.errors && result.errors.length > 0) {
-    throw new Error(result.errors[0].message);
-  }
-  
-  return result.data;
-};
-```
+### Server (Hasura)
 
-**Client-side:**
-```typescript
-// src/app/api/graphql/client.ts
-export const executeGraphQLRequest = async <T = unknown>(
-  query: string, 
-  variables?: Record<string, unknown>
-): Promise<T> => {
-  const response = await fetch('/api/graphql', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ query, variables }),
-  });
-  
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || 'GraphQL request failed');
-  }
-  
-  const result = await response.json();
-  return result.data;
-};
-```
+- Use `executeQuery` and `executeMutation` from `src/app/api/graphql/serverClient.ts`.
+- Set `HASURA_ENDPOINT` and `HASURA_ADMIN_SECRET` in the server environment only.
 
-### Message Encryption
+### Chat encryption
 
-Chat messages are encrypted before storage using AES encryption. The encryption key should be stored securely in environment variables.
+Messages are encrypted before storage. `CHAT_ENCRYPTION_KEY` must be set on the server. Content is decrypted when returned by the API.
 
-### Rate Limiting
+### File uploads
 
-Chat messages have rate limiting: 20 messages per minute per user.
-
-### File Upload Validation
-
-- **Images**: Max 5MB, allowed types: JPEG, PNG, GIF, WebP
-- **Documents**: Max 10MB, allowed types: PDF, DOC, DOCX
+- Images: typically max 5MB; types such as JPEG, PNG, GIF, WebP.
+- Documents: max size and types as configured in the upload route.
 
 ### Pagination
 
-Most list endpoints support pagination with `limit` and `offset` parameters. Response includes pagination metadata:
-
-```json
-{
-  "pagination": {
-    "total": 100,
-    "limit": 10,
-    "offset": 0,
-    "hasMore": true
-  }
-}
-```
+List endpoints use `limit` and `offset`. Responses often include `pagination: { total, limit, offset, hasMore }`.
 
 ---
 
 ## Testing
 
-### Test Endpoints
-
-- `GET /api` - Returns API information and available endpoints
-- `GET /api/test-env` - Tests environment variable configuration
-- `GET /api/test-hasura` - Tests Hasura connection
-- `GET /api/test-s3` - Tests S3 configuration
+- `GET /api` — API info  
+- `GET /api/test-env` — Env check  
+- `GET /api/test-hasura` — Hasura connectivity  
+- `GET /api/test-s3` — S3 config  
 
 ---
 
-## Support
+## Related docs
 
-For implementation questions or issues, refer to:
-- API Structure Guide: `/documentation/guides/api-structure.md`
-- Database Setup: `/documentation/database/README.md`
-- Product Features: `/documentation/product-features/`
+- **Auth & user model:** [Nhost Migration & Auth Architecture](../docs/nhost-migration.md)  
+- **Database:** `documentation/database/`  
+- **API client reference:** `src/lib/api-client.ts`, `src/lib/chat-api.ts`  
 
 ---
 
-**Last Updated:** 2024-01-01
-**API Version:** 1.0.0
-
+**Last updated:** 2025-03  
+**API version:** v1

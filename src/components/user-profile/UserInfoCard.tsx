@@ -29,7 +29,7 @@ export default function UserInfoCard() {
                 Name
               </p>
               <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                {user?.role === "super_admin" ? "Super Admin" : "User"}
+                {user?.name ?? "Admin"}
               </p>
             </div>
 
@@ -38,7 +38,7 @@ export default function UserInfoCard() {
                 Role
               </p>
               <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                {user?.role === "super_admin" ? "Super Admin" : user?.role}
+                {user?.role === "admin" ? "Administrator" : user?.role ?? "—"}
               </p>
             </div>
 
@@ -47,7 +47,7 @@ export default function UserInfoCard() {
                 Email address
               </p>
               <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                {user?.email}
+                {user?.email ?? "—"}
               </p>
             </div>
 
@@ -55,8 +55,8 @@ export default function UserInfoCard() {
               <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
                 Phone
               </p>
-              <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                +09 363 398 46
+              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                —
               </p>
             </div>
 
@@ -64,8 +64,8 @@ export default function UserInfoCard() {
               <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
                 Bio
               </p>
-              <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                Team Manager
+              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                —
               </p>
             </div>
           </div>
@@ -150,27 +150,27 @@ export default function UserInfoCard() {
                 <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
                   <div className="col-span-2 lg:col-span-1">
                     <Label>Name</Label>
-                    <Input type="text" defaultValue={user?.role === "super_admin" ? "Super Admin" : "User"} disabled />
+                    <Input type="text" defaultValue={user?.name ?? "Admin"} disabled />
                   </div>
 
                   <div className="col-span-2 lg:col-span-1">
                     <Label>Email Address</Label>
-                    <Input type="text" defaultValue={user?.email} disabled />
+                    <Input type="text" defaultValue={user?.email ?? ""} disabled />
                   </div>
 
                   <div className="col-span-2 lg:col-span-1">
                     <Label>Role</Label>
-                    <Input type="text" defaultValue={user?.role === "super_admin" ? "Super Admin" : user?.role || ""} disabled />
+                    <Input type="text" defaultValue={user?.role === "admin" ? "Administrator" : user?.role ?? ""} disabled />
                   </div>
 
                   <div className="col-span-2 lg:col-span-1">
                     <Label>Phone</Label>
-                    <Input type="text" defaultValue="+09 363 398 46" />
+                    <Input type="text" defaultValue="" placeholder="Not set" disabled />
                   </div>
 
                   <div className="col-span-2">
                     <Label>Bio</Label>
-                    <Input type="text" defaultValue="Team Manager" />
+                    <Input type="text" defaultValue="" placeholder="Not set" disabled />
                   </div>
                 </div>
               </div>
