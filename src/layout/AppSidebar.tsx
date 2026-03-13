@@ -31,14 +31,6 @@ const navItems: NavItem[] = [
   },
   {
     icon: <CalenderIcon />,
-    name: "Transactions",
-    subItems: [
-      { name: "Payment Intents", path: "/dashboard/payment-intents", pro: false },
-      { name: "Transfers", path: "/dashboard/transfers", pro: false },
-    ],
-  },
-  {
-    icon: <CalenderIcon />,
     name: "Properties",
     subItems: [
       { name: "Property List", path: "/dashboard/properties", pro: false },
@@ -49,7 +41,7 @@ const navItems: NavItem[] = [
     name: "CRM",
     subItems: [
       { name: "Customers", path: "/dashboard/customers", pro: false },
-      { name: "Beneficiaries", path: "/dashboard/beneficiaries", pro: false },
+      { name: "App Customers", path: "/dashboard/app-customers", pro: false },
     ],
   },
   {
