@@ -196,7 +196,7 @@ export default function AppCustomersPage() {
                         <button
                           onClick={() =>
                             router.push(
-                              `/dashboard/user-management/edit/${user.id}`
+                              `/dashboard/app-customers/edit/${user.id}`
                             )
                           }
                           className="text-brand-600 hover:text-brand-900 dark:text-brand-400 dark:hover:text-brand-300"

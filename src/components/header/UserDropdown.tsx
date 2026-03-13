@@ -1,6 +1,4 @@
 "use client";
-import Image from "next/image";
-// import Link from "next/link";
 import React, { useState } from "react";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
@@ -19,23 +17,35 @@ export default function UserDropdown() {
     setIsOpen(false);
   }
 
+  const displayName =
+    user?.name?.trim() || user?.email || (user?.role === "super_admin" ? "Super Admin" : "User");
+  const avatarSrc = user?.avatar?.trim();
+  const initial = (user?.name?.trim() || user?.email || "U").charAt(0).toUpperCase();
+
   return (
     <div className="relative">
       <button
         onClick={toggleDropdown}
         className="flex items-center text-gray-700 dark:text-gray-400 dropdown-toggle"
       >
-        <span className="mr-3 overflow-hidden rounded-full h-11 w-11">
-          <Image
-            width={44}
-            height={44}
-            src="/images/user/owner.jpg"
-            alt="User"
-          />
+        <span className="mr-3 flex h-11 w-11 flex-shrink-0 overflow-hidden rounded-full bg-brand-500">
+          {avatarSrc ? (
+            <img
+              src={avatarSrc}
+              alt={displayName}
+              className="h-full w-full object-cover"
+              width={44}
+              height={44}
+            />
+          ) : (
+            <span className="flex h-full w-full items-center justify-center text-sm font-medium text-white">
+              {initial}
+            </span>
+          )}
         </span>
 
-        <span className="block mr-1 font-medium text-theme-sm">
-          {user?.role === "super_admin" ? "Super Admin" : "User"}
+        <span className="block mr-1 font-medium text-theme-sm truncate max-w-[140px]">
+          {displayName}
         </span>
 
         <svg
@@ -64,10 +74,10 @@ export default function UserDropdown() {
         className="absolute right-0 mt-[17px] flex w-[260px] flex-col rounded-2xl border border-gray-200 bg-white p-3 shadow-theme-lg dark:border-gray-800 dark:bg-gray-dark"
       >
         <div>
-          <span className="block font-medium text-gray-700 text-theme-sm dark:text-gray-400">
-            {user?.role === "super_admin" ? "Super Admin" : "User"}
+          <span className="block font-medium text-gray-700 text-theme-sm dark:text-gray-400 truncate">
+            {displayName}
           </span>
-          <span className="mt-0.5 block text-theme-xs text-gray-500 dark:text-gray-400">
+          <span className="mt-0.5 block text-theme-xs text-gray-500 dark:text-gray-400 truncate">
             {user?.email}
           </span>
         </div>
