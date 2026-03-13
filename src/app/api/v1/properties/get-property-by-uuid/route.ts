@@ -5,6 +5,7 @@ import { executeHasuraQuery } from "../../utils/hasuraServer";
 const PROPERTY_FIELDS = `
   id
   property_uuid
+  landlord_user_id
   title
   description
   created_at
@@ -35,9 +36,24 @@ const GET_PROPERTY_BY_UUID = `
   }
 `;
 
+const GET_LANDLORD_BY_ID = `
+  query GetLandlordById($nhost_user_id: uuid!) {
+    real_estate_user(where: { nhost_user_id: { _eq: $nhost_user_id } }, limit: 1) {
+      nhost_user_id
+      uuid
+      email
+      display_name
+      first_name
+      last_name
+      photo_url
+    }
+  }
+`;
+
 type PropertyRow = {
   id?: number | string;
   property_uuid?: string;
+  landlord_user_id?: string | null;
   title?: string;
   description?: string | null;
   address?: Record<string, unknown> | null;
@@ -102,6 +118,7 @@ export async function GET(request: NextRequest) {
     const transformedProperty = {
       id: String(property.id ?? ""),
       property_uuid: property.property_uuid ?? "",
+      landlord_user_id: property.landlord_user_id ?? null,
       title: property.title ?? "",
       description: property.description ?? "",
       address: typeof address === "object" ? address : {},
@@ -126,8 +143,44 @@ export async function GET(request: NextRequest) {
       updated_at: property.updated_at ?? property.created_at ?? "",
     };
 
-    // Landlord: optional; resolve via Nhost/Hasura in a separate call if needed. Omit for now to avoid client usage.
-    const landlord = null;
+    let landlord: {
+      id: string;
+      name: string | null;
+      email: string | null;
+      avatar: string | null;
+    } | null = null;
+
+    const landlordUserId = property.landlord_user_id ?? null;
+    if (landlordUserId) {
+      try {
+        const landlordResult = await executeHasuraQuery<{
+          real_estate_user: Array<{
+            nhost_user_id?: string;
+            uuid?: string;
+            email?: string | null;
+            display_name?: string | null;
+            first_name?: string | null;
+            last_name?: string | null;
+            photo_url?: string | null;
+          }>;
+        }>(GET_LANDLORD_BY_ID, { nhost_user_id: landlordUserId });
+        const u = landlordResult.real_estate_user?.[0];
+        if (u) {
+          const name =
+            u.display_name?.trim() ||
+            [u.first_name, u.last_name].filter(Boolean).join(" ").trim() ||
+            null;
+          landlord = {
+            id: u.nhost_user_id ?? u.uuid ?? landlordUserId,
+            name,
+            email: u.email ?? null,
+            avatar: u.photo_url ?? null,
+          };
+        }
+      } catch {
+        // Landlord resolution is best-effort
+      }
+    }
 
     return successResponse({
       property: transformedProperty,
