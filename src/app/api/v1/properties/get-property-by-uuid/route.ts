@@ -6,6 +6,7 @@ const PROPERTY_FIELDS = `
   id
   property_uuid
   landlord_user_id
+  status
   title
   description
   created_at
@@ -54,6 +55,7 @@ type PropertyRow = {
   id?: number | string;
   property_uuid?: string;
   landlord_user_id?: string | null;
+  status?: string | null;
   title?: string;
   description?: string | null;
   address?: Record<string, unknown> | null;
@@ -119,6 +121,7 @@ export async function GET(request: NextRequest) {
       id: String(property.id ?? ""),
       property_uuid: property.property_uuid ?? "",
       landlord_user_id: property.landlord_user_id ?? null,
+      status: property.status === "draft" ? "draft" : "published",
       title: property.title ?? "",
       description: property.description ?? "",
       address: typeof address === "object" ? address : {},
@@ -138,7 +141,6 @@ export async function GET(request: NextRequest) {
       pets_allowed: property.pets_allowed ?? false,
       amenities: normalizeAmenities(property.amenities),
       availability_date: property.availability_date ?? "",
-      status: "published",
       created_at: property.created_at ?? "",
       updated_at: property.updated_at ?? property.created_at ?? "",
     };

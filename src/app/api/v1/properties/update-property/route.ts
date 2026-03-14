@@ -13,6 +13,7 @@ const UPDATE_PROPERTY_MUTATION = `
       returning {
         id
         property_uuid
+        status
         title
         description
         property_type
@@ -73,6 +74,8 @@ export async function PUT(request: NextRequest) {
       set.availability_date = updates.availability_date;
     if (updates.rental_price_currency !== undefined)
       set.rental_price_currency = updates.rental_price_currency;
+    if (updates.status !== undefined)
+      set.status = updates.status === "draft" ? "draft" : "published";
 
     if (updates.uploaded_images !== undefined) {
       set.uploaded_images = updates.uploaded_images;

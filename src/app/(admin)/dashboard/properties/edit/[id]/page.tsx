@@ -35,6 +35,7 @@ function apiPropertyToFormData(apiProperty: Record<string, unknown>): Partial<Re
     Array.isArray(amenities)
       ? { additionals: amenities as string[] }
       : (amenities as RealEstatePropertyInsertInput["amenities"]) || {};
+  const status = apiProperty.status === "draft" ? "draft" : "published";
   return {
     title: String(apiProperty.title ?? ""),
     description: String(apiProperty.description ?? ""),
@@ -54,6 +55,7 @@ function apiPropertyToFormData(apiProperty: Record<string, unknown>): Partial<Re
     rental_price: Number(apiProperty.rental_price ?? 0),
     rental_price_currency: String(apiProperty.rental_price_currency ?? "HKD"),
     availability_date: String(apiProperty.availability_date ?? ""),
+    status,
   };
 }
 
@@ -398,6 +400,26 @@ const PropertyEditPage: React.FC = () => {
               Transfer Ownership
             </Button>
           </div>
+        </div>
+
+        {/* Listing status */}
+        <div className="mb-6 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Listing status
+          </h3>
+          <select
+            value={(formData as { status?: string }).status ?? "published"}
+            onChange={(e) =>
+              handleInputChange("status", e.target.value as "draft" | "published")
+            }
+            className="w-full max-w-xs rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+          >
+            <option value="draft">Draft</option>
+            <option value="published">Published</option>
+          </select>
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            Changes are saved when you click Save Changes below.
+          </p>
         </div>
 
         {/* Edit Form Cards */}

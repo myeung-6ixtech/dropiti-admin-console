@@ -8,6 +8,7 @@ const INSERT_PROPERTY_MUTATION = `
       id
       property_uuid
       landlord_user_id
+      status
       title
       description
       created_at
@@ -46,14 +47,18 @@ export async function POST(request: NextRequest) {
       amenities,
       availableDate,
       ownerId,
+      status: statusParam,
     } = body;
 
     if (!title || !ownerId) {
       return errorResponse('title and ownerId are required', undefined, 400);
     }
 
+    const status = statusParam === 'published' ? 'published' : 'draft';
+
     const object: Record<string, unknown> = {
       landlord_user_id: ownerId,
+      status,
       title,
       description: description ?? '',
       property_type: details?.propertyType ?? 'apartment',

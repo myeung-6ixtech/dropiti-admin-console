@@ -106,8 +106,8 @@ const AddPropertyPage: React.FC = () => {
     return true;
   };
 
-  const handleSave = async () => {
-    if (!validateForm()) return;
+  const handleSave = async (status: "draft" | "published") => {
+    if (status === "published" && !validateForm()) return;
     const ownerId = user?.id;
     if (!ownerId) {
       showToast("error", "You must be signed in to create a property.");
@@ -116,7 +116,7 @@ const AddPropertyPage: React.FC = () => {
 
     try {
       setSaving(true);
-      showToast("info", "Creating property...");
+      showToast("info", status === "published" ? "Creating property..." : "Saving draft...");
 
       const body = {
         title: formData.title,
@@ -136,6 +136,7 @@ const AddPropertyPage: React.FC = () => {
         amenities: formData.amenities?.additionals ?? [],
         availableDate: formData.availability_date ?? "",
         ownerId,
+        status,
       };
 
       const response = await fetch("/api/v1/properties/create-property", {
@@ -151,7 +152,7 @@ const AddPropertyPage: React.FC = () => {
         throw new Error(result.error || result.message || "Failed to create property");
       }
 
-      showToast("success", "Property created successfully!");
+      showToast("success", status === "published" ? "Property created successfully!" : "Draft saved successfully!");
 
       const uuid = result.data?.property_uuid ?? result.data?.id;
       if (uuid) {
@@ -244,14 +245,24 @@ const AddPropertyPage: React.FC = () => {
           <Button variant="outline" onClick={handleCancel} disabled={saving}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={saving}>
+          <Button variant="outline" onClick={() => handleSave("draft")} disabled={saving}>
+            {saving ? (
+              <div className="flex items-center">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2"></div>
+                Saving...
+              </div>
+            ) : (
+              "Save Draft"
+            )}
+          </Button>
+          <Button onClick={() => handleSave("published")} disabled={saving}>
             {saving ? (
               <div className="flex items-center">
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                 Creating...
               </div>
             ) : (
-              'Create Property'
+              "Create Property"
             )}
           </Button>
         </div>
