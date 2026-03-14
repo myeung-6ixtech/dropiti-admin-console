@@ -90,12 +90,19 @@ function formatLocation(address: PropertyRow["address"]): string {
   return parts.join(", ");
 }
 
-function normalizeAmenities(amenities: unknown): string[] {
-  if (Array.isArray(amenities)) return amenities.filter(Boolean) as string[];
-  if (amenities && typeof amenities === "object") {
-    return Object.values(amenities as Record<string, unknown>).flat().filter(Boolean) as string[];
+/** Return amenities as canonical object { additionals: string[] } for consistent round-trip. */
+function normalizeAmenitiesToObject(amenities: unknown): { additionals: string[] } {
+  if (amenities && typeof amenities === "object" && !Array.isArray(amenities)) {
+    const o = amenities as Record<string, unknown>;
+    const additionals = Array.isArray(o.additionals)
+      ? (o.additionals.filter(Boolean) as string[])
+      : [];
+    return { additionals };
   }
-  return [];
+  if (Array.isArray(amenities)) {
+    return { additionals: amenities.filter(Boolean) as string[] };
+  }
+  return { additionals: [] };
 }
 
 export async function GET(request: NextRequest) {
@@ -139,7 +146,7 @@ export async function GET(request: NextRequest) {
       property_type: property.property_type ?? "",
       furnished: property.furnished ?? "none",
       pets_allowed: property.pets_allowed ?? false,
-      amenities: normalizeAmenities(property.amenities),
+      amenities: normalizeAmenitiesToObject(property.amenities),
       availability_date: property.availability_date ?? "",
       created_at: property.created_at ?? "",
       updated_at: property.updated_at ?? property.created_at ?? "",

@@ -28,13 +28,18 @@ interface UserOption {
   avatar: string | null;
 }
 
-/** Map API get-property-by-uuid property to form data shape */
+/** Map API get-property-by-uuid property to form data shape. Amenities are always { additionals: string[] }. */
 function apiPropertyToFormData(apiProperty: Record<string, unknown>): Partial<RealEstatePropertyInsertInput> {
   const amenities = apiProperty.amenities;
-  const amenitiesObj =
-    Array.isArray(amenities)
-      ? { additionals: amenities as string[] }
-      : (amenities as RealEstatePropertyInsertInput["amenities"]) || {};
+  let amenitiesObj: RealEstatePropertyInsertInput["amenities"] = { additionals: [] };
+  if (amenities && typeof amenities === "object" && !Array.isArray(amenities)) {
+    const o = amenities as Record<string, unknown>;
+    amenitiesObj = {
+      additionals: Array.isArray(o.additionals) ? (o.additionals as string[]) : [],
+    };
+  } else if (Array.isArray(amenities)) {
+    amenitiesObj = { additionals: amenities as string[] };
+  }
   const status = apiProperty.status === "draft" ? "draft" : "published";
   return {
     title: String(apiProperty.title ?? ""),

@@ -96,14 +96,13 @@ export async function PUT(request: NextRequest) {
       set.display_image = updates.display_image;
 
     if (updates.amenities !== undefined) {
-      set.amenities =
-        typeof updates.amenities === "object" && !Array.isArray(updates.amenities)
-          ? updates.amenities
-          : {
-              additionals: Array.isArray(updates.amenities)
-                ? updates.amenities
-                : [],
-            };
+      const a = updates.amenities;
+      const additionals = Array.isArray(a)
+        ? [...a.filter(Boolean)]
+        : a && typeof a === "object" && Array.isArray((a as { additionals?: unknown }).additionals)
+          ? [...((a as { additionals: unknown[] }).additionals.filter(Boolean))]
+          : [];
+      set.amenities = { additionals };
     }
 
     const result = await executeHasuraQuery<{

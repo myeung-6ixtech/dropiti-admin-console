@@ -141,6 +141,7 @@ export interface RealEstatePropertyInsertInput {
   rental_price?: number;
   rental_price_currency?: string;
   availability_date?: string;
+  status?: "draft" | "published";
 }
 
 // Generic CRUD operations

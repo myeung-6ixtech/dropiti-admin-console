@@ -133,7 +133,7 @@ const AddPropertyPage: React.FC = () => {
           furnished: formData.furnished ?? "none",
           petsAllowed: formData.pets_allowed ?? false,
         },
-        amenities: formData.amenities?.additionals ?? [],
+        amenities: formData.amenities ?? { additionals: [] },
         availableDate: formData.availability_date ?? "",
         ownerId,
         status,

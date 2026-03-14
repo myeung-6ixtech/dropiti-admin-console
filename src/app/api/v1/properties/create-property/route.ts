@@ -56,6 +56,13 @@ export async function POST(request: NextRequest) {
 
     const status = statusParam === 'published' ? 'published' : 'draft';
 
+    const amenitiesObj =
+      amenities && typeof amenities === 'object' && !Array.isArray(amenities) && Array.isArray((amenities as { additionals?: unknown }).additionals)
+        ? { additionals: (amenities as { additionals: unknown[] }).additionals.filter(Boolean) }
+        : Array.isArray(amenities)
+          ? { additionals: amenities.filter(Boolean) }
+          : { additionals: [] };
+
     const object: Record<string, unknown> = {
       landlord_user_id: ownerId,
       status,
@@ -71,7 +78,7 @@ export async function POST(request: NextRequest) {
       num_bathroom: bathrooms ?? null,
       furnished: details?.furnished ?? 'none',
       pets_allowed: details?.petsAllowed ?? false,
-      amenities: Array.isArray(amenities) ? { additionals: amenities } : { additionals: [] },
+      amenities: amenitiesObj,
       display_image: photos?.length > 0 ? photos[0] : null,
       uploaded_images: photos ?? [],
       rental_price: price ?? null,
