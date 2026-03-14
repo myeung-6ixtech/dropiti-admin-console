@@ -1,6 +1,35 @@
 import { NextRequest } from 'next/server';
-import { RealEstatePropertyService, RealEstatePropertyInsertInput } from '@/app/graphql/services/realEstatePropertyService';
 import { successResponse, errorResponse } from '../../utils/response';
+import { executeHasuraQuery } from '../../utils/hasuraServer';
+
+const INSERT_PROPERTY_MUTATION = `
+  mutation InsertRealEstateProperty($object: real_estate_property_listing_insert_input!) {
+    insert_real_estate_property_listing_one(object: $object) {
+      id
+      property_uuid
+      landlord_user_id
+      title
+      description
+      created_at
+      property_type
+      rental_space
+      address
+      show_specific_location
+      gross_area_size
+      gross_area_size_unit
+      num_bedroom
+      num_bathroom
+      furnished
+      pets_allowed
+      amenities
+      display_image
+      uploaded_images
+      rental_price
+      rental_price_currency
+      availability_date
+    }
+  }
+`;
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,38 +48,40 @@ export async function POST(request: NextRequest) {
       ownerId,
     } = body;
 
-    // Validate required fields
     if (!title || !ownerId) {
       return errorResponse('title and ownerId are required', undefined, 400);
     }
 
-    // Transform request to service input format
-    const propertyInput: RealEstatePropertyInsertInput = {
-      landlord_firebase_uid: ownerId,
+    const object: Record<string, unknown> = {
+      landlord_user_id: ownerId,
       title,
-      description: description || '',
-      property_type: details?.propertyType || 'apartment',
-      rental_space: details?.rentalSpace || 'entire',
-      address: address || {},
-      show_specific_location: true, // Default
-      gross_area_size: details?.grossArea,
-      gross_area_size_unit: 'sqft', // Default
-      num_bedroom: bedrooms,
-      num_bathroom: bathrooms,
-      furnished: details?.furnished || 'none',
-      pets_allowed: details?.petsAllowed || false,
-      amenities: {
-        additionals: Array.isArray(amenities) ? amenities : [],
-      },
-      display_image: photos && photos.length > 0 ? photos[0] : undefined,
-      uploaded_images: photos || [],
-      rental_price: price,
-      rental_price_currency: 'HKD', // Default, can be made configurable
-      availability_date: availableDate,
+      description: description ?? '',
+      property_type: details?.propertyType ?? 'apartment',
+      rental_space: details?.rentalSpace ?? 'entire',
+      address: address ?? {},
+      show_specific_location: true,
+      gross_area_size: details?.grossArea ?? null,
+      gross_area_size_unit: 'sqft',
+      num_bedroom: bedrooms ?? null,
+      num_bathroom: bathrooms ?? null,
+      furnished: details?.furnished ?? 'none',
+      pets_allowed: details?.petsAllowed ?? false,
+      amenities: Array.isArray(amenities) ? { additionals: amenities } : { additionals: [] },
+      display_image: photos?.length > 0 ? photos[0] : null,
+      uploaded_images: photos ?? [],
+      rental_price: price ?? null,
+      rental_price_currency: 'HKD',
+      availability_date: availableDate ?? null,
     };
 
-    // Note: isDraft parameter is ignored as is_public field is not available in schema
-    const property = await RealEstatePropertyService.createRealEstateProperty(propertyInput);
+    const result = await executeHasuraQuery<{
+      insert_real_estate_property_listing_one: Record<string, unknown>;
+    }>(INSERT_PROPERTY_MUTATION, { object });
+
+    const property = result.insert_real_estate_property_listing_one;
+    if (!property) {
+      return errorResponse('Insert did not return a property', undefined, 500);
+    }
 
     return successResponse(
       property,
@@ -62,10 +93,9 @@ export async function POST(request: NextRequest) {
     console.error('Error creating property:', error);
     const errorObj = error as { message?: string };
     return errorResponse(
-      errorObj.message || 'Failed to create property',
+      errorObj.message ?? 'Failed to create property',
       undefined,
       500
     );
   }
 }
-
