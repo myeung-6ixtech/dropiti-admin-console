@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { RealEstateProperty, RealEstatePropertyInsertInput } from "@/app/graphql/types";
 import Button from "@/components/ui/button/Button";
@@ -84,9 +84,13 @@ const PropertyEditPage: React.FC = () => {
   const [transferSubmitting, setTransferSubmitting] = useState(false);
 
   const propertyId = params.id as string;
+  const lastFetchedIdRef = useRef<string | null>(null);
 
   const fetchProperty = useCallback(async () => {
     if (!propertyId) return;
+    // #region agent log
+    fetch('/api/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({hypothesisId:'A',location:'edit/[id]/page.tsx:fetchProperty',message:'fetchProperty start',data:{propertyId}})}).catch(()=>{});
+    // #endregion
     try {
       setLoading(true);
       setError(null);
@@ -94,7 +98,22 @@ const PropertyEditPage: React.FC = () => {
         `/api/v1/properties/get-property-by-uuid?property_uuid=${encodeURIComponent(propertyId)}`,
         { credentials: "include" }
       );
-      const json = await res.json();
+      let json: { success?: boolean; error?: string; data?: { property?: Record<string, unknown>; landlord?: LandlordInfo } };
+      try {
+        json = await res.json();
+      } catch (_parseErr) {
+        // #region agent log
+        fetch('/api/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({hypothesisId:'E',location:'edit/[id]/page.tsx:jsonParse',message:'res.json() threw',data:{resStatus:res.status,resOk:res.ok}})}).catch(()=>{});
+        // #endregion
+        setError(res.ok ? "Invalid response from server" : `Request failed (${res.status})`);
+        setProperty(null);
+        setLandlord(null);
+        return;
+      }
+
+      // #region agent log
+      fetch('/api/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({hypothesisId:'A',location:'edit/[id]/page.tsx:afterFetch',message:'after fetch',data:{resStatus:res.status,resOk:res.ok,jsonSuccess:json.success,hasDataProperty:!!json.data?.property}})}).catch(()=>{});
+      // #endregion
 
       if (!res.ok || !json.success) {
         setError(json.error || "Property not found");
@@ -106,6 +125,9 @@ const PropertyEditPage: React.FC = () => {
       const apiProperty = json.data?.property;
       const landlordData = json.data?.landlord as LandlordInfo | undefined;
       if (apiProperty) {
+        // #region agent log
+        fetch('/api/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({hypothesisId:'B',location:'edit/[id]/page.tsx:beforeFormData',message:'before apiPropertyToFormData',data:{addressType:typeof apiProperty.address,uploadedImagesType:typeof apiProperty.uploaded_images,isArray:Array.isArray(apiProperty.uploaded_images)}})}).catch(()=>{});
+        // #endregion
         const form = apiPropertyToFormData(apiProperty);
         setFormData(form);
         setProperty({
@@ -115,12 +137,16 @@ const PropertyEditPage: React.FC = () => {
           ...form,
         } as RealEstateProperty);
         setLandlord(landlordData ?? null);
+        lastFetchedIdRef.current = propertyId;
       } else {
         setError("Property not found");
         setProperty(null);
         setLandlord(null);
       }
     } catch (err) {
+      // #region agent log
+      fetch('/api/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({hypothesisId:'B',location:'edit/[id]/page.tsx:catch',message:'fetchProperty catch',data:{errMessage:err instanceof Error ? err.message : String(err),errName:err instanceof Error ? err.name : ''}})}).catch(()=>{});
+      // #endregion
       setError(err instanceof Error ? err.message : "Failed to fetch property");
       setProperty(null);
       setLandlord(null);
@@ -130,8 +156,14 @@ const PropertyEditPage: React.FC = () => {
   }, [propertyId]);
 
   useEffect(() => {
+    // #region agent log
+    const skip = !propertyId || (lastFetchedIdRef.current === propertyId && property != null);
+    fetch('/api/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({hypothesisId:'C',location:'edit/[id]/page.tsx:effect',message:'effect run',data:{propertyId,lastFetchedId:lastFetchedIdRef.current,hasProperty:property!=null,skip}})}).catch(()=>{});
+    // #endregion
+    if (!propertyId) return;
+    if (lastFetchedIdRef.current === propertyId && property != null) return;
     fetchProperty();
-  }, [fetchProperty]);
+  }, [propertyId, fetchProperty, property]);
 
   const handleInputChange = (field: string, value: unknown) => {
     setFormData(prev => ({

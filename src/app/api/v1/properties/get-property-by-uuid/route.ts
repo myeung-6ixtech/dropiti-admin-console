@@ -1,6 +1,16 @@
 import { NextRequest } from "next/server";
+import { appendFileSync, mkdirSync } from "fs";
+import { dirname, join } from "path";
 import { successResponse, errorResponse } from "../../utils/response";
 import { executeHasuraQuery } from "../../utils/hasuraServer";
+
+const DEBUG_LOG_PATH = join(process.cwd(), ".cursor", "debug.log");
+function debugLog(payload: Record<string, unknown>) {
+  try {
+    mkdirSync(dirname(DEBUG_LOG_PATH), { recursive: true });
+    appendFileSync(DEBUG_LOG_PATH, JSON.stringify({ ...payload, timestamp: Date.now() }) + "\n");
+  } catch {}
+}
 
 const PROPERTY_FIELDS = `
   id
@@ -90,25 +100,36 @@ function formatLocation(address: PropertyRow["address"]): string {
   return parts.join(", ");
 }
 
-/** Return amenities as canonical object { additionals: string[] } for consistent round-trip. */
-function normalizeAmenitiesToObject(amenities: unknown): { additionals: string[] } {
-  if (amenities && typeof amenities === "object" && !Array.isArray(amenities)) {
-    const o = amenities as Record<string, unknown>;
-    const additionals = Array.isArray(o.additionals)
+/** Return amenities as flat string[] for DB/API (column is JSONB array). Handles array, object, or JSON string from Hasura. */
+function normalizeAmenitiesToArray(amenities: unknown): string[] {
+  let value: unknown = amenities;
+  if (typeof amenities === "string") {
+    try {
+      value = JSON.parse(amenities) as unknown;
+    } catch {
+      return [];
+    }
+  }
+  if (Array.isArray(value)) {
+    return value.filter(Boolean) as string[];
+  }
+  if (value && typeof value === "object") {
+    const o = value as Record<string, unknown>;
+    return Array.isArray(o.additionals)
       ? (o.additionals.filter(Boolean) as string[])
       : [];
-    return { additionals };
   }
-  if (Array.isArray(amenities)) {
-    return { additionals: amenities.filter(Boolean) as string[] };
-  }
-  return { additionals: [] };
+  return [];
 }
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const property_uuid = searchParams.get("property_uuid");
+    // #region agent log
+    debugLog({ hypothesisId: "D", location: "get-property-by-uuid/route.ts:GET", message: "API GET entry", data: { property_uuid } });
+    fetch('http://127.0.0.1:7243/ingest/7effb07e-6a5f-4ae7-817f-a1aafa378b18',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({hypothesisId:'D',location:'get-property-by-uuid/route.ts:GET',message:'API GET entry',data:{property_uuid},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
 
     if (!property_uuid) {
       return errorResponse("property_uuid is required", undefined, 400);
@@ -119,38 +140,52 @@ export async function GET(request: NextRequest) {
     }>(GET_PROPERTY_BY_UUID, { property_uuid });
 
     const property = result.real_estate_property_listing?.[0];
+    // #region agent log
+    debugLog({ hypothesisId: "D", location: "get-property-by-uuid/route.ts:afterHasura", message: "after Hasura", data: { hasProperty: !!property, rowCount: result.real_estate_property_listing?.length } });
+    fetch('http://127.0.0.1:7243/ingest/7effb07e-6a5f-4ae7-817f-a1aafa378b18',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({hypothesisId:'D',location:'get-property-by-uuid/route.ts:afterHasura',message:'after Hasura',data:{hasProperty:!!property,rowCount:result.real_estate_property_listing?.length},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     if (!property) {
       return errorResponse("Property not found", undefined, 404);
     }
 
     const address = property.address ?? {};
-    const transformedProperty = {
-      id: String(property.id ?? ""),
-      property_uuid: property.property_uuid ?? "",
-      landlord_user_id: property.landlord_user_id ?? null,
-      status: property.status === "draft" ? "draft" : "published",
-      title: property.title ?? "",
-      description: property.description ?? "",
-      address: typeof address === "object" ? address : {},
-      location: formatLocation(property.address),
-      rental_price: Number(property.rental_price ?? 0),
-      rental_price_currency: property.rental_price_currency ?? "HKD",
-      rental_space: property.rental_space ?? "",
-      show_specific_location: Boolean(property.show_specific_location),
-      gross_area_size: property.gross_area_size ?? undefined,
-      gross_area_size_unit: property.gross_area_size_unit ?? "sqft",
-      num_bedroom: property.num_bedroom ?? 0,
-      num_bathroom: property.num_bathroom ?? 0,
-      display_image: property.display_image ?? "",
-      uploaded_images: property.uploaded_images ?? [],
-      property_type: property.property_type ?? "",
-      furnished: property.furnished ?? "none",
-      pets_allowed: property.pets_allowed ?? false,
-      amenities: normalizeAmenitiesToObject(property.amenities),
-      availability_date: property.availability_date ?? "",
-      created_at: property.created_at ?? "",
-      updated_at: property.updated_at ?? property.created_at ?? "",
-    };
+    let transformedProperty: Record<string, unknown>;
+    try {
+      transformedProperty = {
+        id: String(property.id ?? ""),
+        property_uuid: property.property_uuid ?? "",
+        landlord_user_id: property.landlord_user_id ?? null,
+        status: property.status === "draft" ? "draft" : "published",
+        title: property.title ?? "",
+        description: property.description ?? "",
+        address: typeof address === "object" ? address : {},
+        location: formatLocation(property.address),
+        rental_price: Number(property.rental_price ?? 0),
+        rental_price_currency: property.rental_price_currency ?? "HKD",
+        rental_space: property.rental_space ?? "",
+        show_specific_location: Boolean(property.show_specific_location),
+        gross_area_size: property.gross_area_size ?? undefined,
+        gross_area_size_unit: property.gross_area_size_unit ?? "sqft",
+        num_bedroom: Number(property.num_bedroom ?? 0),
+        num_bathroom: Number(property.num_bathroom ?? 0),
+        display_image: property.display_image ?? "",
+        uploaded_images: Array.isArray(property.uploaded_images) ? property.uploaded_images : [],
+        property_type: property.property_type ?? "",
+        furnished: property.furnished ?? "none",
+        pets_allowed: Boolean(property.pets_allowed),
+        amenities: normalizeAmenitiesToArray(property.amenities),
+        availability_date: property.availability_date ?? "",
+        created_at: property.created_at ?? "",
+        updated_at: property.updated_at ?? property.created_at ?? "",
+      };
+    } catch (transformErr) {
+      console.error("Error transforming property:", transformErr);
+      return errorResponse(
+        transformErr instanceof Error ? transformErr.message : "Failed to transform property",
+        undefined,
+        500
+      );
+    }
 
     let landlord: {
       id: string;
@@ -196,6 +231,10 @@ export async function GET(request: NextRequest) {
       landlord,
     });
   } catch (error: unknown) {
+    // #region agent log
+    debugLog({ hypothesisId: "D", location: "get-property-by-uuid/route.ts:catch", message: "API catch", data: { errMessage: (error as { message?: string }).message } });
+    fetch('http://127.0.0.1:7243/ingest/7effb07e-6a5f-4ae7-817f-a1aafa378b18',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({hypothesisId:'D',location:'get-property-by-uuid/route.ts:catch',message:'API catch',data:{errMessage:(error as { message?: string }).message},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     console.error("Error fetching property by UUID:", error);
     const errorObj = error as { message?: string };
     return errorResponse(

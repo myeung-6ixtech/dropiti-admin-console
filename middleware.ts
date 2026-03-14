@@ -35,8 +35,8 @@ function hasAdminRole(payload: Record<string, unknown>): boolean {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Never run auth logic or redirects on API routes (avoids ERR_TOO_MANY_REDIRECTS on fetch)
-  if (pathname.startsWith("/api")) {
+  // Never run auth logic or redirects on API routes (avoids ERR_TOO_MANY_REDIRECTS / 308 on fetch)
+  if (pathname.startsWith("/api") || pathname.includes("/api/")) {
     return NextResponse.next();
   }
 

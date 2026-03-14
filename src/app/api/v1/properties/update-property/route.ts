@@ -97,12 +97,12 @@ export async function PUT(request: NextRequest) {
 
     if (updates.amenities !== undefined) {
       const a = updates.amenities;
-      const additionals = Array.isArray(a)
+      const amenitiesArray = Array.isArray(a)
         ? [...a.filter(Boolean)]
         : a && typeof a === "object" && Array.isArray((a as { additionals?: unknown }).additionals)
           ? [...((a as { additionals: unknown[] }).additionals.filter(Boolean))]
           : [];
-      set.amenities = { additionals };
+      set.amenities = amenitiesArray;
     }
 
     const result = await executeHasuraQuery<{
