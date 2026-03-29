@@ -82,14 +82,18 @@ export const BasicInfoSection: React.FC<{
             <div>
               <Label>Currency</Label>
               <select
-                value={formData.rental_price_currency || 'HKD'}
-                onChange={(e) => onInputChange('rental_price_currency', e.target.value)}
+                value={
+                  formData.rental_price_currency === "MOP"
+                    ? "MOP"
+                    : "HKD"
+                }
+                onChange={(e) =>
+                  onInputChange("rental_price_currency", e.target.value)
+                }
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
               >
-                <option value="HKD">HKD (HK$)</option>
-                <option value="USD">USD ($)</option>
-                <option value="EUR">EUR (€)</option>
-                <option value="GBP">GBP (£)</option>
+                <option value="HKD">HKD (Hong Kong dollar)</option>
+                <option value="MOP">MOP (Macao pataca)</option>
               </select>
             </div>
 

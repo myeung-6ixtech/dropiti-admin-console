@@ -40,6 +40,7 @@ export async function POST(request: NextRequest) {
       description,
       address,
       price,
+      rental_price_currency: currencyParam,
       bedrooms,
       bathrooms,
       photos,
@@ -49,6 +50,9 @@ export async function POST(request: NextRequest) {
       ownerId,
       status: statusParam,
     } = body;
+
+    const rental_price_currency =
+      currencyParam === "MOP" ? "MOP" : "HKD";
 
     if (!title || !ownerId) {
       return errorResponse('title and ownerId are required', undefined, 400);
@@ -81,7 +85,7 @@ export async function POST(request: NextRequest) {
       display_image: photos?.length > 0 ? photos[0] : null,
       uploaded_images: photos ?? [],
       rental_price: price ?? null,
-      rental_price_currency: 'HKD',
+      rental_price_currency,
       availability_date: availableDate ?? null,
     };
 

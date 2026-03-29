@@ -118,11 +118,14 @@ const AddPropertyPage: React.FC = () => {
       setSaving(true);
       showToast("info", status === "published" ? "Creating property..." : "Saving draft...");
 
+      const currency =
+        formData.rental_price_currency === "MOP" ? "MOP" : "HKD";
       const body = {
         title: formData.title,
         description: formData.description ?? "",
         address: formData.address ?? {},
         price: formData.rental_price,
+        rental_price_currency: currency,
         bedrooms: formData.num_bedroom ?? 0,
         bathrooms: formData.num_bathroom ?? 0,
         photos: formData.uploaded_images ?? [],

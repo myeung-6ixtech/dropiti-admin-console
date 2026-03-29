@@ -244,3 +244,21 @@
 {"hypothesisId":"A","location":"edit/[id]/page.tsx:fetchProperty","message":"fetchProperty start","data":{"propertyId":"7766a414-440f-428a-b51a-88631d8e6fcd"},"timestamp":1773507755762}
 {"hypothesisId":"B","location":"edit/[id]/page.tsx:catch","message":"fetchProperty catch","data":{"errMessage":"Failed to fetch","errName":"TypeError"},"timestamp":1773507755794}
 {"hypothesisId":"B","location":"edit/[id]/page.tsx:catch","message":"fetchProperty catch","data":{"errMessage":"Failed to fetch","errName":"TypeError"},"timestamp":1773507755794}
+{"hypothesisId":"D","location":"get-property-by-uuid/route.ts:GET","message":"API GET entry","data":{"property_uuid":"e42bc96c-7119-443b-953e-e4bfb9fd3e82"},"timestamp":1774797898395}
+{"hypothesisId":"D","location":"get-property-by-uuid/route.ts:afterHasura","message":"after Hasura","data":{"hasProperty":true,"rowCount":1},"timestamp":1774797898451}
+{"hypothesisId":"D","location":"get-property-by-uuid/route.ts:GET","message":"API GET entry","data":{"property_uuid":"e42bc96c-7119-443b-953e-e4bfb9fd3e82"},"timestamp":1774797898754}
+{"hypothesisId":"D","location":"get-property-by-uuid/route.ts:afterHasura","message":"after Hasura","data":{"hasProperty":true,"rowCount":1},"timestamp":1774797898897}
+{"hypothesisId":"D","location":"get-property-by-uuid/route.ts:GET","message":"API GET entry","data":{"property_uuid":"e42bc96c-7119-443b-953e-e4bfb9fd3e82"},"timestamp":1774797905830}
+{"hypothesisId":"C","location":"edit/[id]/page.tsx:effect","message":"effect run","data":{"propertyId":"e42bc96c-7119-443b-953e-e4bfb9fd3e82","lastFetchedId":null,"hasProperty":false,"skip":false},"timestamp":1774797905837}
+{"hypothesisId":"A","location":"edit/[id]/page.tsx:fetchProperty","message":"fetchProperty start","data":{"propertyId":"e42bc96c-7119-443b-953e-e4bfb9fd3e82"},"timestamp":1774797905837}
+{"hypothesisId":"C","location":"edit/[id]/page.tsx:effect","message":"effect run","data":{"propertyId":"e42bc96c-7119-443b-953e-e4bfb9fd3e82","lastFetchedId":null,"hasProperty":false,"skip":false},"timestamp":1774797905837}
+{"hypothesisId":"A","location":"edit/[id]/page.tsx:fetchProperty","message":"fetchProperty start","data":{"propertyId":"e42bc96c-7119-443b-953e-e4bfb9fd3e82"},"timestamp":1774797905837}
+{"hypothesisId":"D","location":"get-property-by-uuid/route.ts:afterHasura","message":"after Hasura","data":{"hasProperty":true,"rowCount":1},"timestamp":1774797906059}
+{"hypothesisId":"D","location":"get-property-by-uuid/route.ts:GET","message":"API GET entry","data":{"property_uuid":"e42bc96c-7119-443b-953e-e4bfb9fd3e82"},"timestamp":1774797906300}
+{"hypothesisId":"A","location":"edit/[id]/page.tsx:afterFetch","message":"after fetch","data":{"resStatus":200,"resOk":true,"jsonSuccess":true,"hasDataProperty":true},"timestamp":1774797906309}
+{"hypothesisId":"B","location":"edit/[id]/page.tsx:beforeFormData","message":"before apiPropertyToFormData","data":{"addressType":"object","uploadedImagesType":"object","isArray":true},"timestamp":1774797906309}
+{"hypothesisId":"C","location":"edit/[id]/page.tsx:effect","message":"effect run","data":{"propertyId":"e42bc96c-7119-443b-953e-e4bfb9fd3e82","lastFetchedId":"e42bc96c-7119-443b-953e-e4bfb9fd3e82","hasProperty":true,"skip":true},"timestamp":1774797906309}
+{"hypothesisId":"D","location":"get-property-by-uuid/route.ts:afterHasura","message":"after Hasura","data":{"hasProperty":true,"rowCount":1},"timestamp":1774797906351}
+{"hypothesisId":"A","location":"edit/[id]/page.tsx:afterFetch","message":"after fetch","data":{"resStatus":200,"resOk":true,"jsonSuccess":true,"hasDataProperty":true},"timestamp":1774797906461}
+{"hypothesisId":"B","location":"edit/[id]/page.tsx:beforeFormData","message":"before apiPropertyToFormData","data":{"addressType":"object","uploadedImagesType":"object","isArray":true},"timestamp":1774797906461}
+{"hypothesisId":"C","location":"edit/[id]/page.tsx:effect","message":"effect run","data":{"propertyId":"e42bc96c-7119-443b-953e-e4bfb9fd3e82","lastFetchedId":"e42bc96c-7119-443b-953e-e4bfb9fd3e82","hasProperty":true,"skip":true},"timestamp":1774797906461}

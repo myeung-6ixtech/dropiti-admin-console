@@ -213,7 +213,7 @@ function ImageUploadDndInner({
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {imageList.map((url, index) => (
               <SortableImage
-                key={`${url}-${index}`}
+                key={url}
                 url={url}
                 index={index}
                 moveImage={moveImage}

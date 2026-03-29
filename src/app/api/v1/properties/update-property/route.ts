@@ -72,8 +72,10 @@ export async function PUT(request: NextRequest) {
     if (updates.pets_allowed !== undefined) set.pets_allowed = updates.pets_allowed;
     if (updates.availability_date !== undefined)
       set.availability_date = updates.availability_date;
-    if (updates.rental_price_currency !== undefined)
-      set.rental_price_currency = updates.rental_price_currency;
+    if (updates.rental_price_currency !== undefined) {
+      set.rental_price_currency =
+        updates.rental_price_currency === "MOP" ? "MOP" : "HKD";
+    }
     if (updates.status !== undefined)
       set.status = updates.status === "draft" ? "draft" : "published";
 
