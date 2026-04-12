@@ -25,6 +25,7 @@ export async function GET(request: NextRequest) {
           description
           created_at
           updated_at
+          completion_percentage
         }
       }
     `;
@@ -40,7 +41,7 @@ export async function GET(request: NextRequest) {
       property_uuid: draft.property_uuid,
       title: draft.title,
       status: 'draft',
-      completion_percentage: calculateCompletionPercentage(draft),
+      completion_percentage: draftCompletionOrCalculated(draft),
       last_saved_at: draft.updated_at || draft.created_at,
     }));
 
@@ -54,6 +55,15 @@ export async function GET(request: NextRequest) {
       500
     );
   }
+}
+
+function draftCompletionOrCalculated(draft: Record<string, unknown>): number {
+  const stored = draft.completion_percentage;
+  if (stored !== null && stored !== undefined && stored !== '') {
+    const n = typeof stored === 'number' ? stored : parseFloat(String(stored));
+    if (Number.isFinite(n)) return n;
+  }
+  return calculateCompletionPercentage(draft);
 }
 
 function calculateCompletionPercentage(draft: Record<string, unknown>): number {

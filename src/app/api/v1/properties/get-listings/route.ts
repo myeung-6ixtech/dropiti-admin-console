@@ -27,6 +27,8 @@ const LISTINGS_FIELDS = `
   rental_price
   rental_price_currency
   availability_date
+  external_url
+  completion_percentage
 `;
 
 const GET_ALL_PROPERTIES = `

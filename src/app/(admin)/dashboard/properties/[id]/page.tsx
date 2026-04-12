@@ -21,7 +21,7 @@ function apiPropertyToCardShape(apiProperty: Record<string, unknown>): RealEstat
     property_type: String(apiProperty.property_type ?? ""),
     rental_space: String(apiProperty.rental_space ?? ""),
     address: (apiProperty.address as RealEstateProperty["address"]) || {},
-    show_specific_location: true,
+    show_specific_location: Boolean(apiProperty.show_specific_location),
     gross_area_size: apiProperty.gross_area_size as number | undefined,
     gross_area_size_unit: String(apiProperty.gross_area_size_unit ?? "sqft"),
     num_bedroom: Number(apiProperty.num_bedroom ?? 0),
@@ -34,6 +34,9 @@ function apiPropertyToCardShape(apiProperty: Record<string, unknown>): RealEstat
     rental_price: Number(apiProperty.rental_price ?? 0),
     rental_price_currency: String(apiProperty.rental_price_currency ?? "HKD"),
     availability_date: String(apiProperty.availability_date ?? ""),
+    external_url: apiProperty.external_url
+      ? String(apiProperty.external_url)
+      : undefined,
   };
 }
 
@@ -115,6 +118,22 @@ const PropertyBasicInfoCard: React.FC<{ property: RealEstateProperty; onEdit: ()
           </p>
         </div>
       )}
+
+      {property.external_url ? (
+        <div className="mt-6">
+          <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
+            External listing URL
+          </p>
+          <a
+            href={property.external_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm font-medium text-brand-600 hover:underline break-all dark:text-brand-400"
+          >
+            {property.external_url}
+          </a>
+        </div>
+      ) : null}
 
       <div className="mt-6">
         <Button

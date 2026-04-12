@@ -32,6 +32,8 @@ const UPDATE_PROPERTY_MUTATION = `
         rental_price
         rental_price_currency
         availability_date
+        external_url
+        completion_percentage
       }
     }
   }
@@ -78,6 +80,22 @@ export async function PUT(request: NextRequest) {
     }
     if (updates.status !== undefined)
       set.status = updates.status === "draft" ? "draft" : "published";
+
+    if (updates.external_url !== undefined) {
+      const u = updates.external_url;
+      const s = typeof u === "string" ? u.trim() : "";
+      set.external_url = s === "" ? null : s;
+    }
+
+    if (updates.completion_percentage !== undefined) {
+      const c = updates.completion_percentage;
+      if (c === null || c === "") {
+        set.completion_percentage = null;
+      } else {
+        const n = typeof c === "number" ? c : parseFloat(String(c));
+        set.completion_percentage = Number.isFinite(n) ? n : null;
+      }
+    }
 
     if (updates.uploaded_images !== undefined) {
       set.uploaded_images = updates.uploaded_images;

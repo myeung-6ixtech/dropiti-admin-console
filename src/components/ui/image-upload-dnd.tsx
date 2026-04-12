@@ -23,6 +23,7 @@ function SortableImage({
   url,
   index,
   moveImage,
+  onReorderEnd,
   isFeatured,
   onSetFeatured,
   onRemove,
@@ -31,12 +32,15 @@ function SortableImage({
   url: string;
   index: number;
   moveImage: (dragIndex: number, hoverIndex: number) => void;
+  /** Called when a drag finishes so parent state can sync (avoids fighting hover updates). */
+  onReorderEnd: () => void;
   isFeatured: boolean;
   onSetFeatured: () => void;
   onRemove: () => void;
   disabled?: boolean;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
+  const dropRef = useRef<HTMLDivElement>(null);
+  const dragHandleRef = useRef<HTMLDivElement>(null);
 
   const [{ handlerId }, drop] = useDrop<DragItem, void, { handlerId: unknown }>({
     accept: 'image',
@@ -46,7 +50,7 @@ function SortableImage({
       };
     },
     hover(item: DragItem, monitor) {
-      if (!ref.current) {
+      if (!dropRef.current) {
         return;
       }
       const dragIndex = item.index;
@@ -56,10 +60,11 @@ function SortableImage({
         return;
       }
 
-      const hoverBoundingRect = ref.current?.getBoundingClientRect();
+      const hoverBoundingRect = dropRef.current.getBoundingClientRect();
       const hoverMiddleY = (hoverBoundingRect.bottom - hoverBoundingRect.top) / 2;
       const clientOffset = monitor.getClientOffset();
-      const hoverClientY = clientOffset!.y - hoverBoundingRect.top;
+      if (!clientOffset) return;
+      const hoverClientY = clientOffset.y - hoverBoundingRect.top;
 
       if (dragIndex < hoverIndex && hoverClientY < hoverMiddleY) {
         return;
@@ -82,14 +87,18 @@ function SortableImage({
       isDragging: monitor.isDragging(),
     }),
     canDrag: !disabled,
+    end: () => {
+      onReorderEnd();
+    },
   });
 
   const opacity = isDragging ? 0.5 : 1;
-  drag(drop(ref));
+  drop(dropRef);
+  drag(dragHandleRef);
 
   return (
     <div
-      ref={ref}
+      ref={dropRef}
       style={{ opacity }}
       data-handler-id={handlerId}
       className="relative group aspect-square rounded-lg border-2 border-gray-200 dark:border-gray-700 overflow-hidden bg-gray-50 dark:bg-gray-800"
@@ -98,15 +107,24 @@ function SortableImage({
         src={url}
         alt=""
         fill
-        className="object-cover"
+        unoptimized
+        className="object-cover pointer-events-none select-none"
+        sizes="25vw"
         onError={(e) => {
-          e.currentTarget.src = 'https://via.placeholder.com/300x300?text=Invalid+Image';
+          const el = e.currentTarget;
+          if (el instanceof HTMLImageElement) {
+            el.src = 'https://via.placeholder.com/300x300?text=Invalid+Image';
+          }
         }}
       />
       
-      {/* Drag handle */}
+      {/* Drag handle only — avoids conflict with next/image and buttons */}
       {!disabled && (
-        <div className="absolute top-2 left-2 p-1 bg-white/90 dark:bg-gray-800/90 rounded cursor-move hover:bg-white dark:hover:bg-gray-700">
+        <div
+          ref={dragHandleRef}
+          className="absolute top-2 left-2 z-10 p-1 bg-white/90 dark:bg-gray-800/90 rounded cursor-grab active:cursor-grabbing hover:bg-white dark:hover:bg-gray-700 touch-none"
+          aria-label="Drag to reorder"
+        >
           <svg className="w-4 h-4 text-gray-600 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
           </svg>
@@ -117,7 +135,7 @@ function SortableImage({
       {!disabled && (
         <button
           onClick={onSetFeatured}
-          className="absolute top-2 right-2 p-1 bg-white/90 dark:bg-gray-800/90 rounded hover:bg-white dark:hover:bg-gray-700"
+          className="absolute top-2 right-2 z-10 p-1 bg-white/90 dark:bg-gray-800/90 rounded hover:bg-white dark:hover:bg-gray-700"
           type="button"
         >
           {isFeatured ? (
@@ -137,7 +155,7 @@ function SortableImage({
         <button
           onClick={onRemove}
           type="button"
-          className="absolute bottom-2 right-2 p-1 bg-red-500/90 text-white rounded hover:bg-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+          className="absolute bottom-2 right-2 z-10 p-1 bg-red-500/90 text-white rounded hover:bg-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -164,9 +182,12 @@ function ImageUploadDndInner({
   hideDropzone = false,
 }: ImageUploadDndProps) {
   const [imageList, setImageList] = useState<string[]>(images);
+  /** Latest order during drag; parent is only updated on drag end to avoid reset/jitter. */
+  const listRef = useRef<string[]>(images);
 
   useEffect(() => {
     setImageList(images);
+    listRef.current = images;
   }, [images]);
 
   const moveImage = useCallback((dragIndex: number, hoverIndex: number) => {
@@ -174,15 +195,20 @@ function ImageUploadDndInner({
       const newImages = [...prevImages];
       const [removed] = newImages.splice(dragIndex, 1);
       newImages.splice(hoverIndex, 0, removed);
-      onImagesChange(newImages);
+      listRef.current = newImages;
       return newImages;
     });
+  }, []);
+
+  const flushReorderToParent = useCallback(() => {
+    onImagesChange([...listRef.current]);
   }, [onImagesChange]);
 
   const handleRemove = useCallback((url: string) => {
     const newImages = imageList.filter((img) => img !== url);
+    listRef.current = newImages;
+    setImageList(newImages);
     onImagesChange(newImages);
-    
     if (featuredImageUrl === url && onFeaturedImageChange) {
       onFeaturedImageChange(null);
     }
@@ -217,6 +243,7 @@ function ImageUploadDndInner({
                 url={url}
                 index={index}
                 moveImage={moveImage}
+                onReorderEnd={flushReorderToParent}
                 isFeatured={featuredImageUrl === url}
                 onSetFeatured={() => handleSetFeatured(url)}
                 onRemove={() => handleRemove(url)}

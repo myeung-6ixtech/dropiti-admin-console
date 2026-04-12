@@ -60,6 +60,13 @@ function apiPropertyToFormData(apiProperty: Record<string, unknown>): Partial<Re
     rental_price: Number(apiProperty.rental_price ?? 0),
     rental_price_currency: String(apiProperty.rental_price_currency ?? "HKD"),
     availability_date: String(apiProperty.availability_date ?? ""),
+    external_url: String(apiProperty.external_url ?? ""),
+    completion_percentage: (() => {
+      const v = apiProperty.completion_percentage;
+      if (v === null || v === undefined || v === "") return null;
+      const n = typeof v === "number" ? v : parseFloat(String(v));
+      return Number.isFinite(n) ? n : null;
+    })(),
     status,
   };
 }
@@ -473,6 +480,9 @@ const PropertyEditPage: React.FC = () => {
           <AddressSection
             formData={formData}
             onAddressChange={handleAddressChange}
+            onShowSpecificLocationChange={(checked) =>
+              handleInputChange("show_specific_location", checked)
+            }
           />
 
           <PropertyDetailsSection
