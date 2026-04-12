@@ -3,6 +3,10 @@ import { appendFileSync, mkdirSync } from "fs";
 import { dirname, join } from "path";
 import { successResponse, errorResponse } from "../../utils/response";
 import { executeHasuraQuery } from "../../utils/hasuraServer";
+import {
+  formatLocation,
+  normalizePropertyAddress,
+} from "../../utils/transformers";
 
 const DEBUG_LOG_PATH = join(process.cwd(), ".cursor", "debug.log");
 function debugLog(payload: Record<string, unknown>) {
@@ -37,6 +41,8 @@ const PROPERTY_FIELDS = `
   rental_price
   rental_price_currency
   availability_date
+  external_url
+  completion_percentage
 `;
 
 const GET_PROPERTY_BY_UUID = `
@@ -84,20 +90,18 @@ type PropertyRow = {
   pets_allowed?: boolean | null;
   amenities?: unknown;
   availability_date?: string | null;
+  external_url?: string | null;
+  completion_percentage?: number | string | null;
   created_at?: string | null;
   updated_at?: string | null;
 };
 
-function formatLocation(address: PropertyRow["address"]): string {
-  if (typeof address === "string") return address;
-  if (!address || typeof address !== "object") return "";
-  const parts = [
-    (address as Record<string, unknown>).street,
-    (address as Record<string, unknown>).district,
-    (address as Record<string, unknown>).state,
-    (address as Record<string, unknown>).country,
-  ].filter(Boolean);
-  return parts.join(", ");
+function parseCompletionPercentage(
+  v: number | string | null | undefined
+): number | null {
+  if (v === null || v === undefined || v === "") return null;
+  const n = typeof v === "number" ? v : parseFloat(String(v));
+  return Number.isFinite(n) ? n : null;
 }
 
 /** Return amenities as flat string[] for DB/API (column is JSONB array). Handles array, object, or JSON string from Hasura. */
@@ -148,7 +152,7 @@ export async function GET(request: NextRequest) {
       return errorResponse("Property not found", undefined, 404);
     }
 
-    const address = property.address ?? {};
+    const normalizedAddress = normalizePropertyAddress(property.address);
     let transformedProperty: Record<string, unknown>;
     try {
       transformedProperty = {
@@ -158,8 +162,8 @@ export async function GET(request: NextRequest) {
         status: property.status === "draft" ? "draft" : "published",
         title: property.title ?? "",
         description: property.description ?? "",
-        address: typeof address === "object" ? address : {},
-        location: formatLocation(property.address),
+        address: normalizedAddress,
+        location: formatLocation(normalizedAddress),
         rental_price: Number(property.rental_price ?? 0),
         rental_price_currency: property.rental_price_currency ?? "HKD",
         rental_space: property.rental_space ?? "",
@@ -175,6 +179,10 @@ export async function GET(request: NextRequest) {
         pets_allowed: Boolean(property.pets_allowed),
         amenities: normalizeAmenitiesToArray(property.amenities),
         availability_date: property.availability_date ?? "",
+        external_url: property.external_url ?? "",
+        completion_percentage: parseCompletionPercentage(
+          property.completion_percentage
+        ),
         created_at: property.created_at ?? "",
         updated_at: property.updated_at ?? property.created_at ?? "",
       };

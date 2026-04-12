@@ -287,6 +287,8 @@ export function MediaLibraryPickerDialog({
                         src={asset.public_url}
                         alt={asset.original_filename || 'Media asset'}
                         fill
+                        unoptimized
+                        sizes="(max-width: 768px) 33vw, (max-width: 1200px) 20vw, 200px"
                         className="object-cover"
                       />
                       

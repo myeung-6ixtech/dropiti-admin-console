@@ -104,6 +104,10 @@ export interface RealEstateProperty {
   rental_price?: number;
   rental_price_currency?: string;
   availability_date?: string;
+  /** Optional third-party listing URL (admin). */
+  external_url?: string | null;
+  /** Listing completeness (0–100 or any numeric stored in DB). Not used to filter fetches in app code. */
+  completion_percentage?: number | null;
 }
 
 export interface RealEstatePropertyInsertInput {
@@ -142,6 +146,10 @@ export interface RealEstatePropertyInsertInput {
   rental_price_currency?: string;
   availability_date?: string;
   status?: "draft" | "published";
+  /** Optional third-party listing URL (admin). */
+  external_url?: string | null;
+  /** Listing completeness (0–100 or any numeric stored in DB). */
+  completion_percentage?: number | null;
 }
 
 // Generic CRUD operations

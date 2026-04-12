@@ -201,6 +201,7 @@ export default function MediaLibrary() {
                   src={asset.public_url}
                   alt={asset.original_filename || 'Media asset'}
                   fill
+                  unoptimized
                   className="object-cover"
                   sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
                 />
@@ -262,6 +263,7 @@ export default function MediaLibrary() {
                   src={selectedAsset.public_url}
                   alt={selectedAsset.original_filename || 'Asset'}
                   fill
+                  unoptimized
                   className="object-contain rounded-lg"
                   sizes="(max-width: 1024px) 100vw, 1024px"
                 />

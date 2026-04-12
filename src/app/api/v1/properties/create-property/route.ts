@@ -28,6 +28,8 @@ const INSERT_PROPERTY_MUTATION = `
       rental_price
       rental_price_currency
       availability_date
+      external_url
+      completion_percentage
     }
   }
 `;
@@ -49,6 +51,9 @@ export async function POST(request: NextRequest) {
       availableDate,
       ownerId,
       status: statusParam,
+      show_specific_location: showSpecificLocationParam,
+      external_url: externalUrlParam,
+      completion_percentage: completionPercentageParam,
     } = body;
 
     const rental_price_currency =
@@ -66,6 +71,19 @@ export async function POST(request: NextRequest) {
         ? ((amenities as { additionals: unknown[] }).additionals.filter(Boolean) as string[])
         : [];
 
+    const externalUrlRaw =
+      typeof externalUrlParam === "string" ? externalUrlParam.trim() : "";
+    const external_url = externalUrlRaw === "" ? null : externalUrlRaw;
+
+    let completion_percentage: number | null = null;
+    if (completionPercentageParam !== undefined && completionPercentageParam !== null) {
+      const n =
+        typeof completionPercentageParam === "number"
+          ? completionPercentageParam
+          : parseFloat(String(completionPercentageParam));
+      if (Number.isFinite(n)) completion_percentage = n;
+    }
+
     const object: Record<string, unknown> = {
       landlord_user_id: ownerId,
       status,
@@ -74,7 +92,12 @@ export async function POST(request: NextRequest) {
       property_type: details?.propertyType ?? 'apartment',
       rental_space: details?.rentalSpace ?? 'entire',
       address: address ?? {},
-      show_specific_location: true,
+      show_specific_location:
+        typeof showSpecificLocationParam === "boolean"
+          ? showSpecificLocationParam
+          : true,
+      external_url,
+      completion_percentage,
       gross_area_size: details?.grossArea ?? null,
       gross_area_size_unit: 'sqft',
       num_bedroom: bedrooms ?? null,

@@ -5,6 +5,15 @@ import Button from '@/components/ui/button/Button';
 import { ImageUploadDnd } from '@/components/ui/image-upload-dnd';
 import type { RealEstatePropertyInsertInput } from '@/app/graphql/types';
 
+/** Local calendar date as YYYY-MM-DD for `<input type="date" />`. */
+export function getTodayDateInputValue(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 // Basic Information Section
 export const BasicInfoSection: React.FC<{
   formData: Partial<RealEstatePropertyInsertInput>;
@@ -106,6 +115,20 @@ export const BasicInfoSection: React.FC<{
                 placeholder="Describe the property, location benefits, and lease terms..."
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
               />
+            </div>
+
+            <div className="col-span-2">
+              <Label>External listing URL</Label>
+              <input
+                type="url"
+                value={formData.external_url ?? ''}
+                onChange={(e) => onInputChange('external_url', e.target.value)}
+                placeholder="https://… (optional third-party listing)"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Shown to admins only; leave blank if there is no external link.
+              </p>
             </div>
           </div>
         </div>
@@ -214,12 +237,21 @@ export const PropertyDetailsSection: React.FC<{
 
         <div>
           <Label>Available Date</Label>
-          <input
-            type="date"
-            value={formData.availability_date ? formData.availability_date.split('T')[0] : ''}
-            onChange={(e) => onInputChange('availability_date', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-          />
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              type="date"
+              value={formData.availability_date ? formData.availability_date.split('T')[0] : ''}
+              onChange={(e) => onInputChange('availability_date', e.target.value)}
+              className="min-w-0 flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+            />
+            <button
+              type="button"
+              onClick={() => onInputChange('availability_date', getTodayDateInputValue())}
+              className="shrink-0 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+            >
+              Today
+            </button>
+          </div>
         </div>
 
         <div className="col-span-2">
@@ -246,7 +278,9 @@ export const PropertyDetailsSection: React.FC<{
 export const AddressSection: React.FC<{
   formData: Partial<RealEstatePropertyInsertInput>;
   onAddressChange: (field: string, value: string | boolean) => void;
-}> = ({ formData, onAddressChange }) => {
+  /** When set, &quot;Show specific location&quot; updates top-level form state (not nested under address). */
+  onShowSpecificLocationChange?: (checked: boolean) => void;
+}> = ({ formData, onAddressChange, onShowSpecificLocationChange }) => {
   const selectedCountry = formData.address?.country || 'HK';
   
   // Hong Kong districts
@@ -411,7 +445,11 @@ export const AddressSection: React.FC<{
             <input
               type="checkbox"
               checked={formData.show_specific_location || false}
-              onChange={(e) => onAddressChange('show_specific_location', e.target.checked)}
+              onChange={(e) =>
+                onShowSpecificLocationChange
+                  ? onShowSpecificLocationChange(e.target.checked)
+                  : onAddressChange('show_specific_location', e.target.checked)
+              }
               className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
             />
             <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">

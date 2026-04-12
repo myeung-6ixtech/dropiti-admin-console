@@ -1,6 +1,43 @@
 import { RealEstateProperty } from '@/app/graphql/types';
 
 /**
+ * Parse address from DB/Hasura into a plain object for forms.
+ * Handles JSON-encoded strings and common legacy key names.
+ */
+export function normalizePropertyAddress(raw: unknown): Record<string, unknown> {
+  let obj: unknown = raw;
+  if (typeof raw === 'string') {
+    const s = raw.trim();
+    if (!s) return {};
+    try {
+      obj = JSON.parse(s) as unknown;
+    } catch {
+      return {};
+    }
+  }
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return {};
+  const o = { ...(obj as Record<string, unknown>) };
+
+  const unit = o.unit ?? o.unit_number;
+  if (unit != null && o.unit == null) {
+    o.unit = String(unit);
+  }
+
+  const floor = o.floor ?? o.floor_number;
+  if (floor != null && o.floor == null) {
+    o.floor = String(floor);
+  }
+
+  const apartmentEstate =
+    o.apartmentEstate ?? o.apartment_estate ?? o.building_name ?? o.buildingName;
+  if (apartmentEstate != null && o.apartmentEstate == null) {
+    o.apartmentEstate = String(apartmentEstate);
+  }
+
+  return o;
+}
+
+/**
  * Format address object to location string
  */
 export function formatLocation(address: Record<string, unknown>): string {
@@ -61,6 +98,13 @@ export function extractAmenities(amenities: unknown): string[] {
  * Transform property to API guide format
  */
 export function transformProperty(property: RealEstateProperty) {
+  const cp = (property as { completion_percentage?: unknown }).completion_percentage;
+  let completion_percentage: number | null = null;
+  if (cp !== null && cp !== undefined && cp !== '') {
+    const n = typeof cp === 'number' ? cp : parseFloat(String(cp));
+    if (Number.isFinite(n)) completion_percentage = n;
+  }
+
   return {
     id: property.id?.toString() || '',
     property_uuid: property.property_uuid,
@@ -68,6 +112,7 @@ export function transformProperty(property: RealEstateProperty) {
     description: property.description || '',
     location: formatLocation(property.address),
     address: property.address,
+    completion_percentage,
     price: property.rental_price || 0,
     priceCurrency: (property as { rental_price_currency?: string }).rental_price_currency || 'HKD',
     bedrooms: property.num_bedroom || 0,

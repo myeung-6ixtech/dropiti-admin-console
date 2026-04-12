@@ -12,6 +12,7 @@ import {
   AddressSection,
   AmenitiesSection,
   PhotosSection,
+  getTodayDateInputValue,
 } from "@/components/properties/shared/PropertyFormSections";
 
 const AddPropertyPage: React.FC = () => {
@@ -34,6 +35,8 @@ const AddPropertyPage: React.FC = () => {
     amenities: {
       additionals: [],
     },
+    external_url: "",
+    availability_date: getTodayDateInputValue(),
   });
 
   const handleInputChange = (field: string, value: unknown) => {
@@ -140,6 +143,8 @@ const AddPropertyPage: React.FC = () => {
         availableDate: formData.availability_date ?? "",
         ownerId,
         status,
+        show_specific_location: formData.show_specific_location ?? false,
+        external_url: formData.external_url ?? "",
       };
 
       const response = await fetch("/api/v1/properties/create-property", {
@@ -221,6 +226,9 @@ const AddPropertyPage: React.FC = () => {
           <AddressSection
             formData={formData}
             onAddressChange={handleAddressChange}
+            onShowSpecificLocationChange={(checked) =>
+              handleInputChange("show_specific_location", checked)
+            }
           />
 
           <PropertyDetailsSection
