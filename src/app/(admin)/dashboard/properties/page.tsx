@@ -16,6 +16,14 @@ interface PropertyListing {
   imageUrl?: string;
 }
 
+const TITLE_MAX_LEN = 30;
+
+function truncateTitle(text: string): string {
+  const t = text?.trim() ?? "";
+  if (t.length <= TITLE_MAX_LEN) return t;
+  return `${t.slice(0, TITLE_MAX_LEN - 1)}…`;
+}
+
 const PropertiesPage: React.FC = () => {
   const router = useRouter();
   const [properties, setProperties] = useState<PropertyListing[]>([]);
@@ -128,8 +136,11 @@ const PropertiesPage: React.FC = () => {
                   key={property.id}
                   className="border-b border-gray-200 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-700"
                 >
-                  <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900 dark:text-white">
-                    {property.title}
+                  <td
+                    className="max-w-[12rem] whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900 dark:text-white"
+                    title={property.title || undefined}
+                  >
+                    {truncateTitle(property.title || "")}
                   </td>
                   <td className="max-w-xs truncate whitespace-nowrap px-6 py-4 text-sm text-gray-600 dark:text-gray-300">
                     {property.description || (

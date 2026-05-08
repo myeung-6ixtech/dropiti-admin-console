@@ -130,6 +130,20 @@ export const BasicInfoSection: React.FC<{
                 Shown to admins only; leave blank if there is no external link.
               </p>
             </div>
+
+            <div className="col-span-2">
+              <Label>External contact (phone)</Label>
+              <input
+                type="tel"
+                value={formData.external_contact ?? ''}
+                onChange={(e) => onInputChange('external_contact', e.target.value)}
+                placeholder="+852XXXXXXXX — owner or agent WhatsApp number"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Admin-only. Used to send ownership invitation via WhatsApp. Include country code (e.g. +852).
+              </p>
+            </div>
           </div>
         </div>
 

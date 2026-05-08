@@ -33,6 +33,7 @@ const UPDATE_PROPERTY_MUTATION = `
         rental_price_currency
         availability_date
         external_url
+        external_contact
         completion_percentage
       }
     }
@@ -85,6 +86,12 @@ export async function PUT(request: NextRequest) {
       const u = updates.external_url;
       const s = typeof u === "string" ? u.trim() : "";
       set.external_url = s === "" ? null : s;
+    }
+
+    if (updates.external_contact !== undefined) {
+      const c = updates.external_contact;
+      const s = typeof c === "string" ? c.trim() : "";
+      set.external_contact = s === "" ? null : s;
     }
 
     if (updates.completion_percentage !== undefined) {

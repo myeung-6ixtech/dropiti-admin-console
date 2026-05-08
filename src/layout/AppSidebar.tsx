@@ -34,6 +34,7 @@ const navItems: NavItem[] = [
     name: "Properties",
     subItems: [
       { name: "Property List", path: "/dashboard/properties", pro: false },
+      { name: "Incoming offers", path: "/dashboard/incoming-offers", pro: false },
     ],
   },
   {

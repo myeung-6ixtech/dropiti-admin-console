@@ -61,6 +61,7 @@ function apiPropertyToFormData(apiProperty: Record<string, unknown>): Partial<Re
     rental_price_currency: String(apiProperty.rental_price_currency ?? "HKD"),
     availability_date: String(apiProperty.availability_date ?? ""),
     external_url: String(apiProperty.external_url ?? ""),
+    external_contact: apiProperty.external_contact != null ? String(apiProperty.external_contact) : null,
     completion_percentage: (() => {
       const v = apiProperty.completion_percentage;
       if (v === null || v === undefined || v === "") return null;

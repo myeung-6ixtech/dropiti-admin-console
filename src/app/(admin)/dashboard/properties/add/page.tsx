@@ -36,6 +36,7 @@ const AddPropertyPage: React.FC = () => {
       additionals: [],
     },
     external_url: "",
+    external_contact: "",
     availability_date: getTodayDateInputValue(),
   });
 
@@ -145,6 +146,7 @@ const AddPropertyPage: React.FC = () => {
         status,
         show_specific_location: formData.show_specific_location ?? false,
         external_url: formData.external_url ?? "",
+        external_contact: formData.external_contact ?? "",
       };
 
       const response = await fetch("/api/v1/properties/create-property", {

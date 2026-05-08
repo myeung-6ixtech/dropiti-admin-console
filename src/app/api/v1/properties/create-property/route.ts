@@ -29,6 +29,7 @@ const INSERT_PROPERTY_MUTATION = `
       rental_price_currency
       availability_date
       external_url
+      external_contact
       completion_percentage
     }
   }
@@ -53,6 +54,7 @@ export async function POST(request: NextRequest) {
       status: statusParam,
       show_specific_location: showSpecificLocationParam,
       external_url: externalUrlParam,
+      external_contact: externalContactParam,
       completion_percentage: completionPercentageParam,
     } = body;
 
@@ -74,6 +76,10 @@ export async function POST(request: NextRequest) {
     const externalUrlRaw =
       typeof externalUrlParam === "string" ? externalUrlParam.trim() : "";
     const external_url = externalUrlRaw === "" ? null : externalUrlRaw;
+
+    const externalContactRaw =
+      typeof externalContactParam === "string" ? externalContactParam.trim() : "";
+    const external_contact = externalContactRaw === "" ? null : externalContactRaw;
 
     let completion_percentage: number | null = null;
     if (completionPercentageParam !== undefined && completionPercentageParam !== null) {
@@ -97,6 +103,7 @@ export async function POST(request: NextRequest) {
           ? showSpecificLocationParam
           : true,
       external_url,
+      external_contact,
       completion_percentage,
       gross_area_size: details?.grossArea ?? null,
       gross_area_size_unit: 'sqft',

@@ -148,6 +148,8 @@ export interface RealEstatePropertyInsertInput {
   status?: "draft" | "published";
   /** Optional third-party listing URL (admin). */
   external_url?: string | null;
+  /** External owner/agent phone number for outreach (admin-only, E.164 format). */
+  external_contact?: string | null;
   /** Listing completeness (0–100 or any numeric stored in DB). */
   completion_percentage?: number | null;
 }
