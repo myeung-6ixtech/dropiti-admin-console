@@ -106,6 +106,8 @@ export interface RealEstateProperty {
   availability_date?: string;
   /** Optional third-party listing URL (admin). */
   external_url?: string | null;
+  /** External owner/agent phone (admin, E.164) for outreach. */
+  external_contact?: string | null;
   /** Listing completeness (0–100 or any numeric stored in DB). Not used to filter fetches in app code. */
   completion_percentage?: number | null;
 }
@@ -148,7 +150,7 @@ export interface RealEstatePropertyInsertInput {
   status?: "draft" | "published";
   /** Optional third-party listing URL (admin). */
   external_url?: string | null;
-  /** External owner/agent phone number for outreach (admin-only, E.164 format). */
+  /** External owner/agent phone (admin, E.164) for outreach. */
   external_contact?: string | null;
   /** Listing completeness (0–100 or any numeric stored in DB). */
   completion_percentage?: number | null;

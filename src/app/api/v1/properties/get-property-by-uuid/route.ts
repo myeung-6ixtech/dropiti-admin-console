@@ -42,6 +42,7 @@ const PROPERTY_FIELDS = `
   rental_price_currency
   availability_date
   external_url
+  external_contact
   completion_percentage
 `;
 
@@ -91,6 +92,7 @@ type PropertyRow = {
   amenities?: unknown;
   availability_date?: string | null;
   external_url?: string | null;
+  external_contact?: string | null;
   completion_percentage?: number | string | null;
   created_at?: string | null;
   updated_at?: string | null;
@@ -180,6 +182,7 @@ export async function GET(request: NextRequest) {
         amenities: normalizeAmenitiesToArray(property.amenities),
         availability_date: property.availability_date ?? "",
         external_url: property.external_url ?? "",
+        external_contact: property.external_contact ?? "",
         completion_percentage: parseCompletionPercentage(
           property.completion_percentage
         ),

@@ -78,7 +78,9 @@ export async function POST(request: NextRequest) {
     const external_url = externalUrlRaw === "" ? null : externalUrlRaw;
 
     const externalContactRaw =
-      typeof externalContactParam === "string" ? externalContactParam.trim() : "";
+      typeof externalContactParam === "string"
+        ? externalContactParam.trim()
+        : "";
     const external_contact = externalContactRaw === "" ? null : externalContactRaw;
 
     let completion_percentage: number | null = null;

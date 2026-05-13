@@ -37,6 +37,10 @@ function apiPropertyToCardShape(apiProperty: Record<string, unknown>): RealEstat
     external_url: apiProperty.external_url
       ? String(apiProperty.external_url)
       : undefined,
+    external_contact:
+      apiProperty.external_contact != null && String(apiProperty.external_contact).trim() !== ""
+        ? String(apiProperty.external_contact)
+        : undefined,
   };
 }
 
@@ -132,6 +136,17 @@ const PropertyBasicInfoCard: React.FC<{ property: RealEstateProperty; onEdit: ()
           >
             {property.external_url}
           </a>
+        </div>
+      ) : null}
+
+      {property.external_contact ? (
+        <div className="mt-6">
+          <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
+            External contact
+          </p>
+          <p className="text-sm font-medium text-gray-800 dark:text-white/90 font-mono">
+            {property.external_contact}
+          </p>
         </div>
       ) : null}
 
