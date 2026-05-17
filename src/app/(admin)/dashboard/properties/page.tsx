@@ -35,18 +35,20 @@ const PropertiesPage: React.FC = () => {
       try {
         setLoading(true);
         setError(null);
-        const res = await fetch("/api/v1/properties/get-listings?limit=50&offset=0", {
-          credentials: "include",
+        const { adminList, mapPropertyListing } = await import("@/lib/admin-api");
+        const { adminRoutes } = await import("@/lib/admin-routes");
+        const list = await adminList<Record<string, unknown>>(adminRoutes.properties(), {
+          limit: "50",
+          offset: "0",
         });
-        const json = await res.json();
 
-        if (!res.ok || !json.success) {
-          setError(json.error || "Failed to load properties");
+        if (list.error) {
+          setError(list.error);
           setProperties([]);
           return;
         }
 
-        setProperties(Array.isArray(json.data) ? json.data : []);
+        setProperties(list.items.map((row) => mapPropertyListing(row)));
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to fetch properties");
         setProperties([]);

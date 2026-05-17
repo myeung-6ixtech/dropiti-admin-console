@@ -34,17 +34,20 @@ export default function MediaLibrary() {
   const fetchAssets = useCallback(async (searchTerm: string = "", newOffset: number = 0) => {
     try {
       setLoading(true);
-      const response = await fetch(
-        `/api/v1/media-assets/list?limit=${limit}&offset=${newOffset}&search=${encodeURIComponent(searchTerm)}`
-      );
-      const data = await response.json();
-      
-      if (data.success) {
-        setAssets(data.data);
-        setTotal(data.meta.total);
+      const { adminList } = await import("@/lib/admin-api");
+      const { adminRoutes } = await import("@/lib/admin-routes");
+      const list = await adminList<MediaAsset>(adminRoutes.media(), {
+        limit: String(limit),
+        offset: String(newOffset),
+        search: searchTerm,
+      });
+
+      if (!list.error) {
+        setAssets(list.items);
+        setTotal(list.pagination?.total ?? list.items.length);
         setOffset(newOffset);
       } else {
-        showToast('error', data.error || 'Failed to load media assets');
+        showToast("error", list.error || "Failed to load media assets");
       }
     } catch {
       showToast('error', 'Failed to load media assets');
@@ -68,21 +71,14 @@ export default function MediaLibrary() {
     
     for (const file of acceptedFiles) {
       try {
-        const formData = new FormData();
-        formData.append('file', file);
-        
-        const response = await fetch('/api/v1/upload/image', {
-          method: 'POST',
-          body: formData,
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-          showToast('success', `Uploaded: ${file.name}`);
+        const { adminUploadImages } = await import("@/lib/admin-api");
+        const upload = await adminUploadImages([file]);
+
+        if (upload.ok) {
+          showToast("success", `Uploaded: ${file.name}`);
           successCount++;
         } else {
-          showToast('error', `Failed to upload: ${file.name} - ${data.error}`);
+          showToast("error", `Failed to upload: ${file.name} - ${upload.error}`);
         }
       } catch {
         showToast('error', `Error uploading: ${file.name}`);

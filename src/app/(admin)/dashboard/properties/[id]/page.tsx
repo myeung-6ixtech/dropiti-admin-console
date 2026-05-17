@@ -401,19 +401,19 @@ const PropertyDetailPage: React.FC = () => {
       try {
         setLoading(true);
         setError(null);
-        const res = await fetch(
-          `/api/v1/properties/get-property-by-uuid?property_uuid=${encodeURIComponent(propertyId)}`,
-          { credentials: "include" }
+        const { adminFetch } = await import("@/lib/admin-api");
+        const { adminRoutes } = await import("@/lib/admin-routes");
+        const result = await adminFetch<{ property?: Record<string, unknown> }>(
+          adminRoutes.property(propertyId)
         );
-        const json = await res.json();
 
-        if (!res.ok || !json.success) {
-          setError(json.error || "Property not found");
+        if (!result.ok || !result.data?.property) {
+          setError(result.error || "Property not found");
           setProperty(null);
           return;
         }
 
-        const apiProperty = json.data?.property;
+        const apiProperty = result.data.property;
         if (apiProperty) {
           setProperty(apiPropertyToCardShape(apiProperty));
         } else {

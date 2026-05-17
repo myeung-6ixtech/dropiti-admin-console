@@ -149,22 +149,21 @@ const AddPropertyPage: React.FC = () => {
         external_contact: formData.external_contact ?? "",
       };
 
-      const response = await fetch("/api/v1/properties/create-property", {
+      const { adminFetch } = await import("@/lib/admin-api");
+      const { adminRoutes } = await import("@/lib/admin-routes");
+      const result = await adminFetch<Record<string, unknown>>(adminRoutes.properties(), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify(body),
       });
 
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || result.message || "Failed to create property");
+      if (!result.ok || !result.data) {
+        throw new Error(result.error || "Failed to create property");
       }
 
       showToast("success", status === "published" ? "Property created successfully!" : "Draft saved successfully!");
 
-      const uuid = result.data?.property_uuid ?? result.data?.id;
+      const uuid = (result.data.property_uuid ?? result.data.id) as string | undefined;
       if (uuid) {
         router.push(`/dashboard/properties/${uuid}`);
       } else {

@@ -75,17 +75,22 @@ export function MediaLibraryPickerDialog({
         params.append('search', debouncedSearch);
       }
 
-      const response = await fetch(`/api/v1/media-assets/list?${params}`);
-      const data = await response.json();
+      const { adminList } = await import("@/lib/admin-api");
+      const { adminRoutes } = await import("@/lib/admin-routes");
+      const list = await adminList<MediaAsset>(adminRoutes.media(), {
+        limit: params.get("limit") ?? String(pageSize),
+        offset: params.get("offset") ?? "0",
+        ...(debouncedSearch ? { search: debouncedSearch } : {}),
+      });
 
-      if (data.success) {
+      if (!list.error) {
         if (reset) {
-          setAssets(data.data);
+          setAssets(list.items);
         } else {
-          setAssets((prev) => [...prev, ...data.data]);
+          setAssets((prev) => [...prev, ...list.items]);
         }
-        setTotal(data.meta.total);
-        setHasMore(data.meta.hasMore);
+        setTotal(list.pagination?.total ?? list.items.length);
+        setHasMore(list.pagination?.hasMore ?? false);
       }
     } catch (error) {
       console.error('Error fetching media assets:', error);
@@ -118,19 +123,8 @@ export function MediaLibraryPickerDialog({
     setUploading(true);
     
     try {
-      const uploadPromises = acceptedFiles.map(async (file) => {
-        const formData = new FormData();
-        formData.append('file', file);
-
-        const response = await fetch('/api/v1/upload/image', {
-          method: 'POST',
-          body: formData,
-        });
-
-        return response.json();
-      });
-
-      await Promise.all(uploadPromises);
+      const { adminUploadImages } = await import("@/lib/admin-api");
+      await adminUploadImages(acceptedFiles);
       
       // Refresh the list after upload
       await fetchAssets(true);

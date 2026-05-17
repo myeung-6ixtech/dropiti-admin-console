@@ -1,751 +1,248 @@
-# Dropiti API Guide
+# Admin console API guide
 
-Complete API documentation for implementing the Dropiti API in another application. The API is built on Next.js App Router, Nhost (auth), and Hasura (GraphQL over Postgres).
+## Browser → BFF → Nhost Functions
 
-## Table of Contents
+The admin UI does **not** call Hasura or Airwallex directly. Client components use [`src/lib/admin-api.ts`](../../src/lib/admin-api.ts) with path segments from [`src/lib/admin-routes.ts`](../../src/lib/admin-routes.ts):
 
-1. [Overview](#overview)
-2. [Authentication](#authentication)
-3. [Base URL & Environment Setup](#base-url--environment-setup)
-4. [GraphQL (Server-Side)](#graphql-server-side)
-5. [REST API Endpoints](#rest-api-endpoints)
-   - [Properties](#properties)
-   - [Offers](#offers)
-   - [Chat](#chat)
-   - [Users](#users)
-   - [Reviews](#reviews)
-   - [Notifications](#notifications)
-   - [Tenants](#tenants)
-   - [Upload](#upload)
-6. [Error Handling](#error-handling)
-7. [Data Models](#data-models)
-8. [Implementation Notes](#implementation-notes)
+- **BFF path:** `/api/v1/bff/functions/admin/...` (same-origin; forwards `nhost_access_token` cookie as Bearer)
+- **Functions path:** `/v1/admin/...` on `NEXT_PUBLIC_FUNCTIONS_URL`
 
----
+Example: `adminFetch(adminRoutes.users(), { searchParams: { limit: "50", offset: "0" } })` → `GET /v1/admin/users`.
 
-## Overview
+**Authoritative admin console contract:** [`decouple-plan-v2.md`](./decouple-plan-v2.md) §10 and §14. Nhost handler inventory: [`dropiti-nhost/documentation/api-guide.md`](../../../dropiti-nhost/documentation/api-guide.md).
 
-The Dropiti API uses:
+### Remaining local API routes
 
-- **Nhost** for authentication (email/password and Google OAuth). User identity is the Nhost user UUID (`auth.users.id`), which is stored as `nhost_user_id` in the app database.
-- **Hasura** (GraphQL) over Postgres for data. All Hasura access from the app is server-side only, using the Hasura admin secret.
-- **REST** routes under `/api/v1/*` for operations that the Next.js app (or an external client) calls. These routes run on the server and call Hasura internally.
+| Route | Purpose |
+|-------|---------|
+| `/api/v1/auth/*` | Nhost sign-in, httpOnly cookie session (BFF reads `nhost_access_token`) |
+| `/api/v1/bff/functions/*` | Proxy to `{NEXT_PUBLIC_FUNCTIONS_URL}/v1/...` |
+| `/api/webhooks/airwallex` | Inbound Airwallex webhook (server-only `AIRWALLEX_*` in `.env`) |
 
-**Important:** All user identifiers in this API are **Nhost user UUIDs** (the same as `auth.users.id` and `real_estate.user.nhost_user_id`). There is no Firebase; legacy names like “get-user-by-uuid” refer to lookup by this Nhost UUID.
+All admin UI data calls use **`adminFetch(adminRoutes.*())`** → BFF → Functions (REST-style paths, no `/index` suffix).
 
-### API Version
-
-- Current Version: `v1`
-- Base Path: `/api/v1`
+**Env (admin console):** `NEXT_PUBLIC_FUNCTIONS_URL`, `NEXT_PUBLIC_NHOST_*`, `NHOST_JWT_SECRET`. Optional server-only for webhooks: `AIRWALLEX_API_KEY`, `AIRWALLEX_CLIENT_ID`. Do **not** use `HASURA_ADMIN_SECRET` in this app.
 
 ---
 
-## Authentication
+# Dropiti Nhost — Functions API (local & cloud)
 
-Authentication is handled by **Nhost**. The front-end app uses the Nhost client (`@nhost/nextjs`) and session cookies. For server-to-server or external clients:
+Base URL pattern:
 
-- **Same-origin (Next.js app):** Requests are made to `/api/v1/*` with the browser’s cookies; the session is established by Nhost.
-- **External client:** You must establish a Nhost session (e.g. `nhost.auth.signIn`) and send the session token (e.g. in `Authorization: Bearer <access_token>`) if your backend validates it. The current API routes do not always enforce auth on every endpoint; they assume the caller is the Next.js app or a trusted service.
+- **Local (Nhost CLI):** `https://local.functions.local.nhost.run/v1/...`
+- **Cloud:** `https://<subdomain>.functions.<region>.nhost.run/v1/...`
 
-For full auth flow, session handling, and the link between `auth.users` and `real_estate.user`, see **[Nhost Migration & Auth Architecture](../docs/nhost-migration.md)**.
+All function routes use the **`/v1/`** prefix plus the path derived from the file under `functions/` (see [AI_Rules.md](./AI_Rules.md) §3). Files live at `functions/client/...` and `functions/admin/...` — **not** `functions/v1/...` (that would double the `/v1` segment).
 
-### User identity in API
+## Unified backend (client + admin)
 
-- **`userId` / `nhost_user_id` / `id` (user):** Always the Nhost user UUID (same as `auth.users.id`).
-- **`landlord_user_id` / `initiator_user_id` / `recipient_user_id` / `sender_user_id`:** In the database these store the same Nhost UUID (as text or uuid depending on table). Use the Nhost user ID in all requests.
+See [dropiti-unified-backend-v3.md](./dropiti-unified-backend-v3.md) (current spec), [dropiti-unified-backend-v2.md](./dropiti-unified-backend-v2.md), and [schema-v2-notes.md](./schema-v2-notes.md).
 
-### Session auth (v1)
+| Namespace | On-disk | Example URL |
+|-----------|---------|-------------|
+| Client | `functions/client/<domain>/<action>.ts` | `GET /v1/client/properties/get-listings` |
+| Admin | `functions/admin/<domain>/...` | `GET /v1/admin/users`, `GET /v1/admin/offers/incoming` |
+| Ops | `functions/health.ts` | `GET /v1/health` |
 
-Session endpoints live under `/api/v1/auth/`. Both the admin and client apps use these paths.
+**Auth:** Protected routes require `Authorization: Bearer <nhost_access_token>`. Admin routes also require `"admin"` in JWT `x-hasura-allowed-roles` (see `_lib/auth.ts` `requireAdminRole`). Frontends must send the Bearer header when calling Functions on another origin — cookies are not forwarded automatically.
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| **POST** | `/api/v1/auth/login` | Sign in with email/password. Body: `{ email, password }`. Sets HTTP-only session cookies on success. Returns `{ success, user }` or `{ error }`. |
-| **GET** | `/api/v1/auth/check` | Validate current session (cookies). Returns `{ authenticated, user? }` or 401. May refresh tokens if access token expired. |
-| **POST** | `/api/v1/auth/logout` | Sign out; revokes refresh token and clears session cookies. Returns `{ success }`. |
+**Frontend env:** `NEXT_PUBLIC_FUNCTIONS_URL` — e.g. `https://<subdomain>.functions.<region>.nhost.run` (no trailing slash).
 
-The admin app requires the user to have the `admin` role in Nhost; login returns 403 if the user does not have that role.
+## Routes (baseline)
 
----
+| Method | Path | Auth |
+|--------|------|------|
+| `GET` | `/v1/health` | None |
+| `GET` | `/v1/echo` | Bearer |
 
-## Base URL & Environment Setup
+### Client (`/v1/client/*`) — dropiti-v3
 
-### Base URL
+| Method | Path | Auth |
+|--------|------|------|
+| `POST` | `/v1/client/users/create-user` | Bearer |
+| `GET` | `/v1/client/users/get-user-by-id?id=` | Bearer |
+| `GET` | `/v1/client/users/get-user-by-uuid?uuid=` | Bearer |
+| `PATCH` | `/v1/client/users/update-user` | Bearer |
+| `POST` | `/v1/client/properties/create-property` | Bearer |
+| `GET` | `/v1/client/properties/get-drafts` | Bearer |
+| `DELETE` | `/v1/client/properties/delete-draft?property_uuid=` | Bearer |
+| `POST` | `/v1/client/properties/publish-draft` | Bearer |
+| `GET` | `/v1/client/properties/get-listings` | Optional Bearer |
+| `GET` | `/v1/client/properties/get-property?id=` | Optional Bearer |
+| `GET` | `/v1/client/properties/get-property-by-uuid?uuid=` | Optional Bearer |
+| `GET` | `/v1/client/properties/get-property-count-by-user` | Bearer |
+| `PATCH` | `/v1/client/properties/update-property` | Bearer |
+| `POST` | `/v1/client/offers/create-offer` | Bearer |
+| `GET` | `/v1/client/offers/get-offers` | Bearer |
+| `GET` | `/v1/client/offers/get-offers-by-id?offerId=` | Bearer |
+| `GET` | `/v1/client/offers/get-offers-by-initiator` | Bearer |
+| `POST` | `/v1/client/offers/accept-offer` | Bearer |
+| `POST` | `/v1/client/offers/reject-offer` | Bearer |
+| `POST` | `/v1/client/offers/counter-offer` | Bearer |
+| `POST` | `/v1/client/offers/withdraw-offer` | Bearer |
+| `GET` | `/v1/client/offers/get-negotiation-state?offerId=` | Bearer |
+| `GET` | `/v1/client/offers/get-offer-actions?offerId=` | Bearer |
+| `GET` | `/v1/client/offers/get-review-opportunities` | Bearer |
+| `POST` | `/v1/client/reviews/create-review` | Bearer |
+| `PATCH` | `/v1/client/reviews/update-review` | Bearer |
+| `DELETE` | `/v1/client/reviews/delete-review?reviewId=` | Bearer |
+| `GET` | `/v1/client/reviews/get-reviews-by-property?propertyUuid=` | Optional Bearer |
+| `GET` | `/v1/client/reviews/get-reviews-by-user?userId=` | Optional Bearer |
+| `POST` | `/v1/client/reviews/mark-helpful` | Bearer |
+| `GET` | `/v1/client/tenants/index` | Bearer |
+| `GET`/`PATCH` | `/v1/client/tenants/profile` | Bearer |
+| `GET` | `/v1/client/transfer-ownership/validate?token=` | **Public** (no Bearer) |
+| `POST` | `/v1/client/transfer-ownership/validate` | **Public** (legacy body `{ token }`) |
+| `POST` | `/v1/client/transfer-ownership/claim` | Bearer (`token` in body; user id from JWT) |
+| `POST` | `/v1/client/upload/presign` | Bearer |
+| `GET` | `/v1/client/chat/get-chat-rooms` | Bearer |
+| `POST` | `/v1/client/chat/get-or-create-room` | Bearer |
+| `GET` | `/v1/client/chat/get-room-messages?roomId=` | Bearer |
+| `POST` | `/v1/client/chat/send-message` | Bearer |
+| `GET` | `/v1/client/notifications/index` | Bearer |
+| `GET` | `/v1/client/notifications/unread-count` | Bearer |
+| `POST` | `/v1/client/notifications/mark-read` | Bearer |
+| `POST` | `/v1/client/notifications/mark-all-read` | Bearer |
+| `POST` | `/v1/client/notifications/archive` | Bearer |
 
-- **Same app:** `https://your-domain.com/api/v1` or relative `/api/v1`.
-- **External client:** Use the full origin, e.g. `https://dropiti.com/api/v1`.
+List endpoints return `{ ok: true, data: { items, pagination? } }`.
 
-### Required Environment Variables (Server)
+### Admin (`/v1/admin/*`)
 
-These are used by the Next.js API routes and must be set in the deployment environment (e.g. Vercel).
+All admin routes use `requireAdminRole()`. Mutating routes log to `admin_audit_logs` when the table is tracked in Hasura.
 
-```env
-# Hasura (server-only)
-HASURA_ENDPOINT=https://<project>.hasura.<region>.nhost.run/v1/graphql
-HASURA_ADMIN_SECRET=<your-admin-secret>
+**Transfer ownership (v2)**
 
-# Nhost (client + server for app)
-NEXT_PUBLIC_NHOST_SUBDOMAIN=<project>
-NEXT_PUBLIC_NHOST_REGION=<region>
+| Method | Path |
+|--------|------|
+| `POST` | `/v1/admin/transfer-ownership/invite` |
+| `POST` | `/v1/admin/transfer-ownership/resend` |
+| `GET` | `/v1/admin/transfer-ownership/status?propertyUuid=` |
+| `PUT` | `/v1/admin/transfer-ownership/transfer` (direct reassignment) |
 
-# Optional but recommended
-NEXT_PUBLIC_SITE_URL=https://your-domain.com
+**Offers**
 
-# Chat encryption (server-only)
-CHAT_ENCRYPTION_KEY=<hex-key>
+| Method | Path |
+|--------|------|
+| `GET` | `/v1/admin/offers/incoming` (+ `whatsappOutreachUrl` on items when `external_contact` set) |
+| `GET` | `/v1/admin/offers/incoming/:offerId` |
+| `GET` | `/v1/admin/offers/index` |
+| `GET` | `/v1/admin/offers/get-offer?offerId=` |
+| `GET` | `/v1/admin/offers/stalled?daysSinceLastActivity=` |
+| `POST` | `/v1/admin/offers/remind`, `flag`, `cancel` |
 
-# S3 (server-only, for uploads)
-S3_BUCKET_NAME=
-S3_BUCKET_ACCESS_KEY=
-S3_BUCKET_SECRET_KEY=
-S3_BUCKET_AWS_REGION=
-S3_BUCKET_DOMAIN_URL=
+**Users**
+
+| Method | Path |
+|--------|------|
+| `GET` | `/v1/admin/users` (search via `?search=`) |
+| `GET` | `/v1/admin/users/:userId` |
+| `PUT`/`PATCH` | `/v1/admin/users/:userId` |
+| `POST` | `/v1/admin/users/verify-user`, `suspend-user`, `reactivate-user`, `ban-user`, `bulk` |
+| `GET` | `/v1/admin/users/export-user-data?userId=` |
+| `DELETE` | `/v1/admin/users/delete-user-data` |
+| `GET` | `/v1/admin/users/activity-log?userId=` |
+
+**Properties**
+
+| Method | Path |
+|--------|------|
+| `GET` | `/v1/admin/properties` |
+| `GET` | `/v1/admin/properties/:propertyUuid` |
+| `GET` | `/v1/admin/properties/moderation-queue` |
+| `GET` | `/v1/admin/properties/reports?propertyUuid=` |
+| `POST` | `/v1/admin/properties/approve`, `reject`, `flag`, `feature`, `bulk` |
+| `PUT` | `/v1/admin/properties/:propertyUuid` |
+
+**Airwallex proxy (v3)** — server-side only; responses include `stub: true` when `AIRWALLEX_*` env is unset
+
+| Method | Path |
+|--------|------|
+| `GET` | `/v1/admin/payments`, `/v1/admin/payments/:id` |
+| `POST` | `/v1/admin/payments/:id/capture`, `/v1/admin/payments/:id/cancel` |
+| `GET` | `/v1/admin/payment-intents`, `/v1/admin/payment-intents/:id` |
+| `PUT` | `/v1/admin/payment-intents/:id` |
+| `GET` | `/v1/admin/beneficiaries`, `/v1/admin/beneficiaries/:id` |
+| `PUT` | `/v1/admin/beneficiaries/:id` |
+| `DELETE` | `/v1/admin/beneficiaries/:id` |
+| `GET` | `/v1/admin/transfers` (Airwallex fund transfers) |
+| `POST` | `/v1/admin/transfers`, `/v1/admin/transfers/:id/cancel` |
+
+**Admin upload (v3)** — Nhost Storage presign; create `admin-media` bucket in dashboard
+
+| Method | Path |
+|--------|------|
+| `POST` | `/v1/admin/upload/presign` — body `{ filename, mimeType, bucketId? }` |
+| `POST` | `/v1/admin/upload/batch` — array of files, max 20 |
+
+**Reviews, reports, analytics, settings, support, audit**
+
+| Domain | Paths |
+|--------|-------|
+| Reviews | `moderation-queue`, `approve`, `reject`, `update-review`, `delete-review` |
+| Reports | `index`, `update`, `resolve`, `summary` |
+| Analytics | `dashboard`, `users`, `properties`, `transactions`, `performance`, `export`, `custom-report` |
+| Settings | `index`, `update`, `feature-flags`, `toggle-flag`, `email-templates`, `update-template` |
+| Support | `support/tickets/*`, `support/canned-responses` |
+| Audit | `audit-logs/index`, `export`, `admin-activity` |
+
+### Real-time (Phase 4)
+
+For **chat** and **notifications**, prefer Hasura subscriptions in the client for live updates; keep these Functions for mutations and cold loads.
+
+### Deploy config
+
+If `replaceConfig` fails with `null` for a section (`auth`, `storage`, etc.), run `nhost config pull` and merge into `nhost/nhost.toml` — partial configs must not send `null` for required objects (see [nhost-guide.md](./nhost-guide.md) → AI_Rules / this doc).
+
+### Health
+
+```bash
+curl -sS "https://local.functions.local.nhost.run/v1/health"
 ```
 
----
-
-## GraphQL (Server-Side)
-
-The app does **not** expose the Hasura endpoint or admin secret to the browser. All Hasura calls go through the Next.js server.
-
-### Server client (API routes)
-
-**File (reference):** `src/app/api/graphql/serverClient.ts`
-
-```typescript
-import { executeQuery, executeMutation } from '@/app/api/graphql/serverClient';
-
-const data = await executeQuery(GraphQL_QUERY_STRING, variables);
-const result = await executeMutation(GraphQL_MUTATION_STRING, variables);
-```
-
-- **Endpoint:** `HASURA_ENDPOINT`
-- **Headers:** `Content-Type: application/json`, `x-hasura-admin-secret: HASURA_ADMIN_SECRET`
-
-If you integrate from another backend, point it at your Hasura URL and use your own admin secret; do not expose the admin secret to the client.
-
-### Variable types (Hasura)
-
-After the Firebase → Nhost migration, some columns remain `text` and others are `uuid`. Use the type Hasura expects:
-
-- **`nhost_user_id`** (e.g. in `real_estate.user`): `uuid!`
-- **`landlord_user_id`** (e.g. in `real_estate.property_listing`): `uuid!`
-- **`initiator_user_id` / `recipient_user_id`** (e.g. in `real_estate.offer`): `String!`
-- **`user_id`** in chat/tenant tables: check schema (often `String`)
-
-See **[Column Type Reference](../docs/nhost-migration.md#column-type-reference)** in the Nhost migration doc.
-
----
-
-## REST API Endpoints
-
-### Properties
-
-#### 1. Get Listings  
-**GET** `/api/v1/properties/get-listings`
-
-**Query parameters:**
-
-| Parameter            | Type   | Default | Description                    |
-|----------------------|--------|---------|--------------------------------|
-| `limit`              | number | 10      | Results per page               |
-| `offset`             | number | 0       | Pagination offset              |
-| `location`           | string | —       | Location filter                |
-| `minPrice`           | number | —       | Min rental price               |
-| `maxPrice`           | number | —       | Max rental price               |
-| `bedrooms`           | number | —       | Number of bedrooms             |
-| `type`               | string | —       | Property type                  |
-| `landlord_user_id`   | string | —       | Filter by landlord (Nhost UUID)|
-
-**Response:** `{ success, data[], pagination: { total, limit, offset, hasMore } }`
-
----
-
-#### 2. Get Property  
-**GET** `/api/v1/properties/get-property?id=<id>`
-
-Returns a single property by internal id.
-
----
-
-#### 3. Get Property by UUID  
-**GET** `/api/v1/properties/get-property-by-uuid?property_uuid=<uuid>`
-
-**Query parameters:** `property_uuid` (required).
-
-**Response:** `{ success, data: { property, landlord? } }` — property and optional landlord info (e.g. `nhost_user_id`, `display_name`, `photo_url`, `email`).
-
----
-
-#### 4. Create Property  
-**POST** `/api/v1/properties/create-property`
-
-**Body:** Property payload including `title`, `description`, `address`, `price`, `bedrooms`, `bathrooms`, `photos`/`imageUrl`, `details`, `amenities`, `availableDate`, `ownerId` (Nhost user UUID), `isDraft` (boolean).
-
-**Response:** `{ success, data, message }`
-
----
-
-#### 5. Update Property  
-**PUT** `/api/v1/properties/update-property`
-
-**Body:** `{ id: string, updates: { title?, description?, price?, status?, ... } }`
-
-**Response:** `{ success, data, message }`
-
----
-
-#### 6. Get Drafts  
-**GET** `/api/v1/properties/get-drafts?landlord_id=<nhost_user_id>`
-
-**Query parameters:** `landlord_id` (required) — Nhost user UUID of the landlord.
-
-**Response:** `{ success, data: [] }` — list of draft properties.
-
----
-
-#### 7. Publish Draft  
-**POST** `/api/v1/properties/publish-draft`
-
-**Body:** `{ property_uuid: string }`
-
----
-
-#### 8. Delete Draft  
-**DELETE** `/api/v1/properties/delete-draft?property_uuid=<uuid>`
-
----
-
-#### 9. Get Property Count by User  
-**GET** `/api/v1/properties/get-property-count-by-user?landlordUserId=<nhost_user_id>`
-
-**Query parameters:** `landlordUserId` (required) — Nhost user UUID.
-
-**Response:** `{ success, data: { count }, message }`
-
----
-
-### Offers
-
-All user IDs in offer endpoints are **Nhost user UUIDs**.
-
-#### 1. Get Offers  
-**GET** `/api/v1/offers/get-offers?userId=<nhost_user_id>&type=<incoming|outgoing>&limit=10&offset=0`
-
-**Response:** `{ success, data[], pagination }`
-
----
-
-#### 2. Create Offer  
-**POST** `/api/v1/offers/create-offer`
-
-**Body:**
+Response envelope (see `_lib/respond.ts`):
 
 ```json
 {
-  "propertyId": "property-uuid",
-  "initiatorUserId": "tenant-nhost-uuid",
-  "recipientUserId": "landlord-nhost-uuid",
-  "proposingRentPrice": 2500,
-  "numLeasingMonths": 12,
-  "paymentFrequency": "monthly",
-  "moveInDate": "2024-01-01",
-  "currency": "HKD"
+  "ok": true,
+  "data": {
+    "status": "ok",
+    "node": "v22.x.x",
+    "time": "2026-..."
+  }
 }
 ```
 
-**Response:** `{ success, data: { id, offer_key, property_uuid, initiator_user_id, recipient_user_id, ... } }`
+### Echo (authenticated)
 
----
+Obtain a user JWT from your Nhost app (sign-in), then:
 
-#### 3. Accept Offer  
-**POST** `/api/v1/offers/accept-offer`
-
-**Body:** `{ offerId: string, currentUserId: string }` — `currentUserId` is Nhost user UUID.
-
----
-
-#### 4. Reject Offer  
-**POST** `/api/v1/offers/reject-offer`
-
-**Body:** `{ offerId, currentUserId, reason? }`
-
----
-
-#### 5. Counter Offer  
-**POST** `/api/v1/offers/counter-offer`
-
-**Body:** `{ offerId, currentUserId, counterData: { rentPrice?, numLeasingMonths?, paymentFrequency?, moveInDate?, message?, reason? } }`
-
----
-
-#### 6. Withdraw Offer  
-**POST** `/api/v1/offers/withdraw-offer`
-
-**Body:** `{ offerId, currentUserId, reason? }`
-
----
-
-#### 7. Get Offers by Recipient  
-**GET** `/api/v1/offers/get-offers-by-id?recipientUserId=<nhost_uuid>&propertyUuid=<uuid>` (optional)
-
-**Query parameters:** `recipientUserId` (required), `propertyUuid` (optional).
-
----
-
-#### 8. Get Offers by Initiator  
-**GET** `/api/v1/offers/get-offers-by-initiator?initiatorUserId=<nhost_uuid>`
-
----
-
-#### 9. Get Negotiation State  
-**GET** `/api/v1/offers/get-negotiation-state?offerId=<id>&currentUserId=<nhost_uuid>`
-
-**Response:** `{ success, data: { offer, negotiationState: { canAccept, canReject, canCounter, canWithdraw } } }`
-
----
-
-#### 10. Get Offer Actions  
-**GET** `/api/v1/offers/get-offer-actions?offerId=<id>`
-
----
-
-#### 11. Get Review Opportunities  
-**GET** `/api/v1/offers/get-review-opportunities?user_id=<nhost_uuid>`
-
-**Response:** `{ success, data: { opportunities: [] } }`
-
----
-
-### Chat
-
-All user IDs are **Nhost user UUIDs**. Chat messages are encrypted at rest; the API returns decrypted content.
-
-#### 1. Get Chat Rooms  
-**GET** `/api/v1/chat/get-chat-rooms?userId=<nhost_uuid>`
-
-**Response:** `{ success, data: [] }` — list of rooms with `room_id`, `user_id`, `role`, `room`, `last_message`, `other_participant` (with `user_details`).
-
----
-
-#### 2. Get or Create Room  
-**POST** `/api/v1/chat/get-or-create-room`
-
-**Body:**
-
-```json
-{
-  "user1UserId": "nhost-uuid-1",
-  "user2UserId": "nhost-uuid-2",
-  "user1Role": "tenant",
-  "user2Role": "landlord"
-}
+```bash
+curl -sS -H "Authorization: Bearer <ACCESS_TOKEN>" \
+  "https://local.functions.local.nhost.run/v1/echo?foo=bar"
 ```
 
-**Response:** `{ success, data: { roomId, room, isNew } }`
+Errors use `{ "ok": false, "error": "...", "details?"?: ... }` with appropriate HTTP status.
 
----
+## Response envelope
 
-#### 3. Get Room Messages  
-**GET** `/api/v1/chat/get-room-messages?roomId=<uuid>&limit=50&offset=0`
+Use **`ok(res, data, status)`** and **`fail(res, message, status, details?)`** from `functions/_lib/respond.ts` in all handlers — do not invent ad-hoc JSON shapes for app responses.
 
-**Response:** `{ success, data: [] }` — messages with `id`, `content`, `sender_user_id`, `status`, `created_at`, `message_type`, `metadata`.
+## Hasura from Functions
 
----
+Use **`hasuraQuery`** from `functions/_lib/hasura.ts` with GraphQL documents at module scope. Check `result.errors` before using `result.data`. Runtime URL and admin secret come from `_lib/env.ts` (`NHOST_GRAPHQL_URL`, `NHOST_ADMIN_SECRET`, fallbacks documented in AI_Rules).
 
-#### 4. Send Message  
-**POST** `/api/v1/chat/send-message`
+## Secrets & env
 
-**Body:**
+- **Local:** repo-root **`.secrets`** file — copy from `secrets/dotsecrets.example` (`secrets/README.md`).
+- **Cloud:** Nhost Dashboard → Secrets; `nhost/nhost.toml` references `{{ secrets.HASURA_GRAPHQL_* }}` for Hasura.
 
-```json
-{
-  "roomId": "room-uuid",
-  "senderUserId": "nhost-uuid",
-  "content": "Message text",
-  "messageType": "text",
-  "metadata": null
-}
-```
+**Secrets** (see `secrets/dotsecrets.example`):
 
-**Response:** `{ success, data: { id, content, sender_user_id, status, created_at, ... } }`
+- v2: `DROPITI_CLIENT_ORIGIN`, `WHATSAPP_*`, `INVITATION_EXPIRY_DAYS`
+- v3: `AIRWALLEX_API_KEY`, `AIRWALLEX_CLIENT_ID`, `AIRWALLEX_ENV` (`demo`|`prod`), `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, `NHOST_STORAGE_ADMIN_BUCKET` (default `admin-media`)
 
-Rate limit: 20 messages per minute per user.
+## Related
 
----
-
-### Users
-
-All lookups are by **Nhost user UUID** (`auth.users.id` / `real_estate.user.nhost_user_id`).
-
-#### 1. Create User  
-**POST** `/api/v1/users/create-user`
-
-**Body:**
-
-```json
-{
-  "nhost_user_id": "nhost-uuid",
-  "display_name": "User Name",
-  "email": "user@example.com",
-  "photo_url": "https://...",
-  "auth_provider": "email"
-}
-```
-
-`auth_provider`: `"email"` or `"google"`. Creates a row in `real_estate.user` if one does not exist (by `nhost_user_id` or `email`).
-
-**Response:** `{ success, data: { uuid, nhost_user_id, display_name, email, ... } }`
-
----
-
-#### 2. Get User by ID (by Nhost user ID)  
-**GET** `/api/v1/users/get-user-by-id?nhost_user_id=<uuid>` or `?id=<uuid>`
-
-Used for session/profile load. Returns full `real_estate.user` profile.
-
-**Response:** `{ success, data: { uuid, nhost_user_id, display_name, email, photo_url, ... } }`
-
----
-
-#### 3. Get User by UUID (public profile)  
-**GET** `/api/v1/users/get-user-by-uuid?uuid=<nhost_uuid>` or `?id=<nhost_uuid>`
-
-Same as get-user-by-id: looks up by `nhost_user_id`. Used for public profile pages (e.g. `/user/[id]`).
-
-**Response:** `{ success, data: { ... } }`
-
----
-
-#### 4. Update User  
-**PUT** `/api/v1/users/update-user`
-
-**Body:** `{ id: string, updates: { display_name?, phone_number?, location?, about?, preferences?, notification_settings?, ... } }`
-
-`id` is the Nhost user UUID.
-
-**Response:** `{ success, data, message }`
-
----
-
-### Reviews
-
-#### 1. Create Review  
-**POST** `/api/v1/reviews/create-review`
-
-**Body:**
-
-```json
-{
-  "offerId": "offer-id",
-  "offerUuid": "offer-uuid",
-  "reviewType": "tenant_to_landlord",
-  "rating": 5,
-  "comment": "Great experience!",
-  "reviewerId": "reviewer-nhost-uuid",
-  "revieweeUserId": "reviewee-nhost-uuid",
-  "propertyUuid": "property-uuid"
-}
-```
-
-**Response:** `{ success, data: { review } }`
-
----
-
-#### 2. Get Reviews by Property  
-**GET** `/api/v1/reviews/get-reviews-by-property?propertyUuid=<uuid>&reviewType=<type>&limit=50&offset=0`
-
-**Response:** `{ success, data: [], total }` — reviews with reviewer/reviewee user details.
-
----
-
-#### 3. Get Reviews by User  
-**GET** `/api/v1/reviews/get-reviews-by-user?userId=<nhost_uuid>&reviewType=<type>&limit=50&offset=0`
-
----
-
-#### 4. Update Review  
-**PUT** `/api/v1/reviews/update-review?reviewUuid=<uuid>`
-
-**Body:** Update payload (e.g. `rating`, `comment`).
-
----
-
-#### 5. Delete Review  
-**DELETE** `/api/v1/reviews/delete-review?reviewUuid=<uuid>`
-
----
-
-#### 6. Mark Helpful  
-**POST** `/api/v1/reviews/mark-helpful?reviewUuid=<uuid>`
-
----
-
-### Notifications
-
-All user IDs are **Nhost user UUIDs**.
-
-#### 1. Get Notifications  
-**GET** `/api/v1/notifications?userId=<nhost_uuid>&isRead=<true|false>&category=<category>&limit=50&offset=0`
-
-**Response:** `{ success, data: [] }`
-
----
-
-#### 2. Mark as Read  
-**POST** `/api/v1/notifications/mark-read`
-
-**Body:** `{ notificationId: string }`
-
----
-
-#### 3. Mark All as Read  
-**POST** `/api/v1/notifications/mark-all-read`
-
-**Body:** `{ userId: string }`
-
----
-
-#### 4. Archive  
-**POST** `/api/v1/notifications/archive`
-
-**Body:** `{ notificationId: string }`
-
----
-
-#### 5. Unread Count  
-**GET** `/api/v1/notifications/unread-count?userId=<nhost_uuid>`
-
-**Response:** `{ success, data: { count } }`
-
----
-
-### Tenants
-
-#### 1. Get Tenant Profiles (list)  
-**GET** `/api/v1/tenants?limit=20&offset=0&budget_min=&budget_max=&location=&move_in_date=&property_type=`
-
-**Response:** `{ success, data: [], pagination }`
-
----
-
-#### 2. Get Tenant Profile (single user)  
-**GET** `/api/v1/tenants/profile?nhost_user_id=<nhost_uuid>`
-
-**Response:** `{ success, data: { tenant_listing_title, tenant_listing_description, budget_min, budget_max, ... } }`
-
----
-
-#### 3. Create or Update Tenant Profile (upsert)  
-**POST** `/api/v1/tenants/profile`
-
-**Body:** Must include `user_nhost_user_id` (Nhost user UUID) plus all tenant profile fields (e.g. `tenant_listing_title`, `tenant_listing_description`, `budget_min`, `budget_max`, `budget_currency`, `preferred_locations`, `privacy_settings`, etc.). If a row exists for that user, it is updated; otherwise a new row is inserted.
-
-**Response:** `{ success, data, message }`
-
----
-
-#### 4. Update Tenant Profile (partial)  
-**PUT** `/api/v1/tenants/profile`
-
-**Body:** `{ user_nhost_user_id: string, updates: { ... } }`
-
-**Response:** `{ success, data, message }`
-
----
-
-### Upload
-
-#### 1. Upload (generic)  
-**POST** `/api/v1/upload`
-
-**Form data:** `files`, `category` (default `"images"`), `uploadType` (default `"direct"`).
-
-**Response:** `{ success, data: { uploadedFiles, totalFiles, successfulUploads, category, uploadType } }`
-
----
-
-#### 2. Direct S3 Upload  
-**POST** `/api/v1/upload/s3`
-
-**Form data:** `file`, `category` (default `"images"`).
-
-**Response:** `{ success, data: { url, key, filename, size, type, uploadedAt } }`
-
----
-
-## Error Handling
-
-### Standard error response
-
-```json
-{
-  "error": "Error message",
-  "details": "Optional details"
-}
-```
-
-### HTTP status codes
-
-- **200** — Success  
-- **400** — Bad request (validation, missing params)  
-- **401** — Unauthorized  
-- **403** — Forbidden  
-- **404** — Not found  
-- **409** — Conflict  
-- **429** — Rate limit (e.g. chat)  
-- **500** — Server error  
-
----
-
-## Data Models
-
-Identifiers are Nhost user UUIDs unless noted.
-
-### User (`real_estate.user`)
-
-```typescript
-interface User {
-  uuid: string;           // Table PK (not used for routing)
-  nhost_user_id: string;  // auth.users.id — use this for URLs and API params
-  display_name: string;
-  email: string;
-  photo_url?: string;
-  auth_provider: 'email' | 'google';
-  phone_number?: string;
-  location?: string;
-  about?: string;
-  occupation?: string;
-  preferences?: Record<string, unknown>;
-  notification_settings?: Record<string, unknown>;
-  privacy_settings?: Record<string, unknown>;
-  created_at: string;
-  updated_at: string;
-}
-```
-
-### Property
-
-```typescript
-interface Property {
-  id: string;
-  property_uuid: string;
-  title: string;
-  description: string;
-  address: Record<string, unknown> | string;
-  location?: string;
-  rental_price: number;
-  rental_price_currency?: string;
-  num_bedroom: number;
-  num_bathroom: number;
-  landlord_user_id: string;  // Nhost UUID
-  status: 'draft' | 'published' | 'archived' | 'expired';
-  display_image?: string;
-  uploaded_images?: string[];
-  amenities?: string[];
-  created_at: string;
-  updated_at: string;
-}
-```
-
-### Offer
-
-```typescript
-interface Offer {
-  id: string;
-  offer_key: string;
-  property_uuid: string;
-  initiator_user_id: string;   // Nhost UUID (text in DB)
-  recipient_user_id: string;   // Nhost UUID (text in DB)
-  proposing_rent_price: number;
-  proposing_rent_price_currency?: string;
-  num_leasing_months: number;
-  payment_frequency: string;
-  move_in_date: string;
-  offer_status: string;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-}
-```
-
-### Review
-
-```typescript
-interface Review {
-  id: string;
-  review_uuid: string;
-  offer_uuid: string;
-  review_type: 'tenant_to_landlord' | 'landlord_to_tenant';
-  rating: number;
-  comment: string;
-  reviewer_user_id: string;
-  reviewee_user_id: string;
-  property_uuid: string;
-  created_at: string;
-  updated_at: string;
-}
-```
-
-### Chat message
-
-```typescript
-interface ChatMessage {
-  id: string;
-  room_id: string;
-  content: string;
-  sender_user_id: string;
-  status: string;
-  message_type: string;
-  metadata?: Record<string, unknown> | null;
-  created_at: string;
-}
-```
-
----
-
-## Implementation Notes
-
-### Client (same app)
-
-The app uses an Axios client with `baseURL: '/api/v1'`. See `src/lib/api-client.ts` for the exact method signatures (e.g. `usersAPI.getUserByNhostUserId`, `propertiesAPI.getListings`, `offersAPI.createOffer`, `tenantsAPI.upsertTenantProfile` with `user_nhost_user_id`).
-
-### Server (Hasura)
-
-- Use `executeQuery` and `executeMutation` from `src/app/api/graphql/serverClient.ts`.
-- Set `HASURA_ENDPOINT` and `HASURA_ADMIN_SECRET` in the server environment only.
-
-### Chat encryption
-
-Messages are encrypted before storage. `CHAT_ENCRYPTION_KEY` must be set on the server. Content is decrypted when returned by the API.
-
-### File uploads
-
-- Images: typically max 5MB; types such as JPEG, PNG, GIF, WebP.
-- Documents: max size and types as configured in the upload route.
-
-### Pagination
-
-List endpoints use `limit` and `offset`. Responses often include `pagination: { total, limit, offset, hasMore }`.
-
----
-
-## Testing
-
-- `GET /api` — API info  
-- `GET /api/test-env` — Env check  
-- `GET /api/test-hasura` — Hasura connectivity  
-- `GET /api/test-s3` — S3 config  
-
----
-
-## Related docs
-
-- **Auth & user model:** [Nhost Migration & Auth Architecture](../docs/nhost-migration.md)  
-- **Database:** `documentation/database/`  
-- **API client reference:** `src/lib/api-client.ts`, `src/lib/chat-api.ts`  
-
----
-
-**Last updated:** 2025-03  
-**API version:** v1
+- [Nhost Functions — Getting started](https://docs.nhost.io/products/functions/guides/getting-started/)
+- [JWT verification in Functions](https://docs.nhost.io/products/functions/guides/jwt-verification/)

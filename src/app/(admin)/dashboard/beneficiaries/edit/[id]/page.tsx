@@ -39,13 +39,17 @@ export default function EditBeneficiary() {
   const fetchBeneficiary = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/beneficiaries?id=${beneficiaryId}`);
-      
-      if (!response.ok) {
-        throw new Error("Failed to fetch beneficiary");
+      const { adminFetch } = await import("@/lib/admin-api");
+      const { adminRoutes } = await import("@/lib/admin-routes");
+      const result = await adminFetch<Beneficiary>(
+        adminRoutes.beneficiary(beneficiaryId)
+      );
+
+      if (!result.ok || !result.data) {
+        throw new Error(result.error || "Failed to fetch beneficiary");
       }
-      
-      const data = await response.json();
+
+      const data = result.data;
       setBeneficiary(data);
       
       // Populate form data
@@ -170,17 +174,16 @@ export default function EditBeneficiary() {
         if (formData.personal_mobile_number) updatePayload.beneficiary.additional_info.personal_mobile_number = formData.personal_mobile_number;
       }
 
-      const response = await fetch(`/api/beneficiaries?id=${beneficiaryId}`, {
+      const { adminFetch } = await import("@/lib/admin-api");
+      const { adminRoutes } = await import("@/lib/admin-routes");
+      const result = await adminFetch(adminRoutes.beneficiary(beneficiaryId), {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updatePayload),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to update beneficiary");
+      if (!result.ok) {
+        throw new Error(result.error || "Failed to update beneficiary");
       }
 
       // Redirect to beneficiary detail page

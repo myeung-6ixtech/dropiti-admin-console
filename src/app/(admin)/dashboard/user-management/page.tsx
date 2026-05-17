@@ -17,21 +17,30 @@ export default function UserManagement() {
   const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/v1/users?limit=100&offset=0');
-      const result = await response.json();
-      
-      if (result.success) {
-        setUsers(result.data.map((user: Record<string, unknown>) => ({
-          id: user.id as string,
-          email: user.email as string,
-          name: user.name as string,
-          role: (user.role_id || (user.role as Record<string, unknown>)?.id || 'viewer') as string,
-          status: user.status as "active" | "inactive",
-          createdAt: user.created_at as string,
-          lastLogin: user.last_login_at as string | undefined,
-        })));
+      const { adminList, mapAppUser } = await import("@/lib/admin-api");
+      const { adminRoutes } = await import("@/lib/admin-routes");
+      const list = await adminList<Record<string, unknown>>(adminRoutes.users(), {
+        limit: "100",
+        offset: "0",
+      });
+
+      if (!list.error) {
+        setUsers(
+          list.items.map((row) => {
+            const u = mapAppUser(row);
+            return {
+              id: u.id,
+              email: u.email ?? "",
+              name: u.name ?? "N/A",
+              role: (u.status as string) ?? "user",
+              status: "active" as const,
+              createdAt: u.created_at ?? "",
+              lastLogin: undefined,
+            };
+          })
+        );
       } else {
-        showToast('error', result.error || 'Failed to fetch users');
+        showToast("error", list.error || "Failed to fetch users");
       }
     } catch (error) {
       console.error('Failed to fetch users:', error);
@@ -60,19 +69,19 @@ export default function UserManagement() {
     }
 
     try {
-      const response = await fetch(`/api/v1/users/delete-user?id=${selectedUser.id}`, {
-        method: 'DELETE',
+      const { adminFetch } = await import("@/lib/admin-api");
+      const { adminRoutes } = await import("@/lib/admin-routes");
+      const result = await adminFetch(adminRoutes.administratorUser(selectedUser.id), {
+        method: "DELETE",
       });
 
-      const result = await response.json();
-
-      if (result.success) {
-        showToast('success', 'User deleted successfully');
-        setUsers(users.filter(u => u.id !== selectedUser.id));
+      if (result.ok) {
+        showToast("success", "User deleted successfully");
+        setUsers(users.filter((u) => u.id !== selectedUser.id));
         setIsDeleteModalOpen(false);
         setSelectedUser(null);
       } else {
-        showToast('error', result.error || 'Failed to delete user');
+        showToast("error", result.error || "Failed to delete user");
       }
     } catch (error) {
       console.error('Failed to delete user:', error);

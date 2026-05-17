@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Button from "@/components/ui/button/Button";
 import { PencilIcon, TrashBinIcon, UserIcon, PlusIcon } from "@/icons";
-import { Beneficiary, BeneficiariesResponse } from "@/types";
+import { Beneficiary } from "@/types";
 
 export default function Beneficiaries() {
   const router = useRouter();
@@ -20,14 +20,13 @@ export default function Beneficiaries() {
   const fetchBeneficiaries = async () => {
     try {
       setLoading(true);
-      const response = await fetch("/api/beneficiaries");
-      
-      if (!response.ok) {
-        throw new Error("Failed to fetch beneficiaries");
+      const { adminList } = await import("@/lib/admin-api");
+      const { adminRoutes } = await import("@/lib/admin-routes");
+      const list = await adminList<Beneficiary>(adminRoutes.beneficiaries());
+      if (list.error) {
+        throw new Error(list.error);
       }
-      
-      const data: BeneficiariesResponse = await response.json();
-      setBeneficiaries(data.items || []);
+      setBeneficiaries(list.items || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
@@ -44,12 +43,15 @@ export default function Beneficiaries() {
     if (!selectedBeneficiary) return;
 
     try {
-      const response = await fetch(`/api/beneficiaries?id=${selectedBeneficiary.beneficiary_id}`, {
-        method: "DELETE",
-      });
+      const { adminFetch } = await import("@/lib/admin-api");
+      const { adminRoutes } = await import("@/lib/admin-routes");
+      const result = await adminFetch(
+        adminRoutes.beneficiary(selectedBeneficiary.beneficiary_id),
+        { method: "DELETE" }
+      );
 
-      if (!response.ok) {
-        throw new Error("Failed to delete beneficiary");
+      if (!result.ok) {
+        throw new Error(result.error || "Failed to delete beneficiary");
       }
 
       // Remove from local state

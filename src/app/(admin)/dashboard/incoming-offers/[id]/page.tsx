@@ -6,6 +6,11 @@ import { useParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import type { AdminOfferRow } from "@/components/admin/AdminIncomingOffers";
 import { AdminOfferDetailPanel } from "@/components/admin/AdminOfferDetailPanel";
+import { adminRoutes } from "@/lib/admin-routes";
+import {
+  functionsBffUrl,
+  parseFunctionsEnvelope,
+} from "@/lib/nhost-functions";
 
 export default function IncomingOfferDetailPage() {
   const { isLoading: authLoading, isAuthenticated } = useAuth();
@@ -21,16 +26,17 @@ export default function IncomingOfferDetailPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/v1/admin/offers/incoming/${encodeURIComponent(offerId)}`, {
-        credentials: "include",
-      });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        setError(json.error || "Failed to load offer");
+      const res = await fetch(
+        functionsBffUrl(adminRoutes.offerIncoming(offerId)),
+        { credentials: "include" }
+      );
+      const parsed = await parseFunctionsEnvelope<AdminOfferRow>(res);
+      if (!res.ok || parsed.error || !parsed.data) {
+        setError(parsed.error || "Failed to load offer");
         setOffer(null);
         return;
       }
-      setOffer(json.data as AdminOfferRow);
+      setOffer(parsed.data);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to fetch offer");
       setOffer(null);

@@ -27,14 +27,15 @@ export default function AddCustomerPaymentMethod() {
   const fetchCustomer = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/customer?id=${customerId}`);
-      
-      if (!response.ok) {
-        throw new Error("Failed to fetch customer");
+      const { adminFetch } = await import("@/lib/admin-api");
+      const { adminRoutes } = await import("@/lib/admin-routes");
+      const result = await adminFetch<Customer>(adminRoutes.customer(customerId));
+
+      if (!result.ok || !result.data) {
+        throw new Error(result.error || "Failed to fetch customer");
       }
-      
-      const data = await response.json();
-      setCustomer(data);
+
+      setCustomer(result.data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
@@ -107,17 +108,18 @@ export default function AddCustomerPaymentMethod() {
       // Step 1: Generate client secret for customer
       console.log('Generating client secret for customer...');
       
-      const clientSecretResponse = await fetch(`/api/customers/${customer.id}/generate-client-secret`, {
-        method: 'POST',
-      });
-      
-      if (!clientSecretResponse.ok) {
-        const errorData = await clientSecretResponse.json();
-        throw new Error(errorData.error || 'Failed to generate client secret');
+      const { adminFetch } = await import("@/lib/admin-api");
+      const { adminRoutes } = await import("@/lib/admin-routes");
+      const clientSecretResult = await adminFetch<{ client_secret?: string }>(
+        adminRoutes.customerClientSecret(customer.id),
+        { method: "POST" }
+      );
+
+      if (!clientSecretResult.ok) {
+        throw new Error(clientSecretResult.error || "Failed to generate client secret");
       }
-      
-      await clientSecretResponse.json();
-      console.log('Client secret generated successfully');
+
+      console.log("Client secret generated successfully", clientSecretResult.data?.client_secret);
       
       // Step 2: Create PaymentConsent using SDK
       console.log('Creating PaymentConsent using SDK...');
@@ -137,11 +139,9 @@ export default function AddCustomerPaymentMethod() {
       // Step 3: Store the PaymentConsent data in our system
       console.log('Storing PaymentConsent data...');
       
-      const storeResponse = await fetch('/api/payment-consents', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+      const storeResult = await adminFetch(adminRoutes.paymentConsents(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           payment_consent_data: paymentConsent,
           customer_id: customer.id,
@@ -149,18 +149,16 @@ export default function AddCustomerPaymentMethod() {
             cardholder_name: cardholderName,
             billing_address: billingAddress.line1 ? billingAddress : undefined,
             admin_created: true,
-            purpose: 'merchant_initiated_payments',
+            purpose: "merchant_initiated_payments",
           },
         }),
       });
 
-      if (!storeResponse.ok) {
-        const errorData = await storeResponse.json();
-        throw new Error(errorData.error || 'Failed to store payment consent');
+      if (!storeResult.ok) {
+        throw new Error(storeResult.error || "Failed to store payment consent");
       }
 
-      const storeResult = await storeResponse.json();
-      console.log('PaymentConsent stored successfully:', storeResult);
+      console.log("PaymentConsent stored successfully:", storeResult.data);
       
       // Redirect back to customer detail page
       router.push(`/dashboard/customers/${customerId}`);

@@ -53,48 +53,30 @@ export default function EditUser() {
   });
 
   const fetchRoles = useCallback(async () => {
-    try {
-      const query = `
-        query GetRoles {
-          real_estate_admin_roles {
-            id
-            name
-          }
-        }
-      `;
-
-      const response = await fetch('/api/graphql', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ query }),
-      });
-
-      const data = await response.json();
-      if (data.data?.real_estate_admin_roles) {
-        setRoles(data.data.real_estate_admin_roles);
-      }
-    } catch (error) {
-      console.error('Failed to fetch roles:', error);
-    }
+    setRoles([
+      { id: "viewer", name: "Viewer" },
+      { id: "user_admin", name: "User Admin" },
+      { id: "content_admin", name: "Content Admin" },
+      { id: "analytics_admin", name: "Analytics Admin" },
+      { id: "system_admin", name: "System Admin" },
+      { id: "super_admin", name: "Super Admin" },
+    ]);
   }, []);
 
   const fetchUser = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/v1/users/get-user-by-id?id=${userId}`);
-      
-      if (!response.ok) {
-        throw new Error("Failed to fetch user");
-      }
-      
-      const result = await response.json();
-      if (!result.success) {
+      const { adminFetch } = await import("@/lib/admin-api");
+      const { adminRoutes } = await import("@/lib/admin-routes");
+      const result = await adminFetch<{ user?: AdministratorUser }>(
+        adminRoutes.administratorUser(userId)
+      );
+
+      if (!result.ok || !result.data?.user) {
         throw new Error(result.error || "Failed to fetch user");
       }
 
-      const user: AdministratorUser = result.data;
+      const user: AdministratorUser = result.data.user;
       
       setFormData({
         email: user.email || "",
@@ -170,20 +152,15 @@ export default function EditUser() {
         updates.password = formData.password;
       }
 
-      const response = await fetch("/api/v1/users/update-user", {
+      const { adminFetch } = await import("@/lib/admin-api");
+      const { adminRoutes } = await import("@/lib/admin-routes");
+      const result = await adminFetch(adminRoutes.administratorUser(userId), {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          id: userId,
-          updates,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ updates }),
       });
 
-      const result = await response.json();
-
-      if (!response.ok || !result.success) {
+      if (!result.ok) {
         throw new Error(result.error || "Failed to update user");
       }
 

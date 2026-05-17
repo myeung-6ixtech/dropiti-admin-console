@@ -46,16 +46,32 @@ export default function AppCustomerEditPage() {
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch(
-        `/api/v1/users/get-app-user?id=${encodeURIComponent(userId)}`,
-        { credentials: "include" }
-      );
-      const json = await res.json();
+      const { adminFetch } = await import("@/lib/admin-api");
+      const { adminRoutes } = await import("@/lib/admin-routes");
+      const result = await adminFetch<{
+        user?: Record<string, unknown>;
+      }>(adminRoutes.user(userId));
 
-      if (!res.ok || !json.success) {
-        throw new Error(json.error ?? "Failed to fetch user");
+      if (!result.ok || !result.data?.user) {
+        throw new Error(result.error ?? "Failed to fetch user");
       }
-      setUser(json.data);
+
+      const row = result.data.user;
+      const profile = row.user_profile as { defaultRole?: string } | null | undefined;
+      setUser({
+        id: String(row.nhost_user_id ?? row.uuid ?? userId),
+        uuid: row.uuid as string | null,
+        email: row.email as string | null,
+        name:
+          (row.display_name as string | null) ??
+          ([row.first_name, row.last_name].filter(Boolean).join(" ") || null),
+        default_role: profile?.defaultRole ?? null,
+        avatar: row.photo_url as string | null,
+        phone: row.phone_number as string | null,
+        address: row.location as AppUserDetail["address"],
+        created_at: row.created_at as string | null,
+        updated_at: row.updated_at as string | null,
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
       setUser(null);

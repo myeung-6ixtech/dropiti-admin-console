@@ -30,13 +30,15 @@ export default function EditCustomer() {
   const fetchCustomer = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/customer?id=${customerId}`);
-      
-      if (!response.ok) {
-        throw new Error("Failed to fetch customer");
+      const { adminFetch } = await import("@/lib/admin-api");
+      const { adminRoutes } = await import("@/lib/admin-routes");
+      const result = await adminFetch<Customer>(adminRoutes.customer(customerId));
+
+      if (!result.ok || !result.data) {
+        throw new Error(result.error || "Failed to fetch customer");
       }
-      
-      const data = await response.json();
+
+      const data = result.data;
       setCustomer(data);
       
       // Populate form data
@@ -104,17 +106,16 @@ export default function EditCustomer() {
         if (formData.country_code) (updatePayload.address as Record<string, unknown>).country_code = formData.country_code;
       }
 
-      const response = await fetch(`/api/customer?id=${customerId}`, {
+      const { adminFetch } = await import("@/lib/admin-api");
+      const { adminRoutes } = await import("@/lib/admin-routes");
+      const result = await adminFetch(adminRoutes.customer(customerId), {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updatePayload),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to update customer");
+      if (!result.ok) {
+        throw new Error(result.error || "Failed to update customer");
       }
 
       // Redirect to customer detail page

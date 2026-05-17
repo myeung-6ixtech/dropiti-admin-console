@@ -99,46 +99,26 @@ const PropertyEditPage: React.FC = () => {
 
   const fetchProperty = useCallback(async () => {
     if (!propertyId) return;
-    // #region agent log
-    fetch('/api/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({hypothesisId:'A',location:'edit/[id]/page.tsx:fetchProperty',message:'fetchProperty start',data:{propertyId}})}).catch(()=>{});
-    // #endregion
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch(
-        `/api/v1/properties/get-property-by-uuid?property_uuid=${encodeURIComponent(propertyId)}`,
-        { credentials: "include" }
-      );
-      let json: { success?: boolean; error?: string; data?: { property?: Record<string, unknown>; landlord?: LandlordInfo } };
-      try {
-        json = await res.json();
-      } catch (_parseErr) {
-        // #region agent log
-        fetch('/api/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({hypothesisId:'E',location:'edit/[id]/page.tsx:jsonParse',message:'res.json() threw',data:{resStatus:res.status,resOk:res.ok}})}).catch(()=>{});
-        // #endregion
-        setError(res.ok ? "Invalid response from server" : `Request failed (${res.status})`);
+      const { adminFetch } = await import("@/lib/admin-api");
+      const { adminRoutes } = await import("@/lib/admin-routes");
+      const result = await adminFetch<{
+        property?: Record<string, unknown>;
+        landlord?: LandlordInfo;
+      }>(adminRoutes.property(propertyId));
+
+      if (!result.ok || !result.data?.property) {
+        setError(result.error || "Property not found");
         setProperty(null);
         setLandlord(null);
         return;
       }
 
-      // #region agent log
-      fetch('/api/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({hypothesisId:'A',location:'edit/[id]/page.tsx:afterFetch',message:'after fetch',data:{resStatus:res.status,resOk:res.ok,jsonSuccess:json.success,hasDataProperty:!!json.data?.property}})}).catch(()=>{});
-      // #endregion
-
-      if (!res.ok || !json.success) {
-        setError(json.error || "Property not found");
-        setProperty(null);
-        setLandlord(null);
-        return;
-      }
-
-      const apiProperty = json.data?.property;
-      const landlordData = json.data?.landlord as LandlordInfo | undefined;
+      const apiProperty = result.data.property;
+      const landlordData = result.data.landlord as LandlordInfo | undefined;
       if (apiProperty) {
-        // #region agent log
-        fetch('/api/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({hypothesisId:'B',location:'edit/[id]/page.tsx:beforeFormData',message:'before apiPropertyToFormData',data:{addressType:typeof apiProperty.address,uploadedImagesType:typeof apiProperty.uploaded_images,isArray:Array.isArray(apiProperty.uploaded_images)}})}).catch(()=>{});
-        // #endregion
         const form = apiPropertyToFormData(apiProperty);
         setFormData(form);
         setProperty({
@@ -155,9 +135,6 @@ const PropertyEditPage: React.FC = () => {
         setLandlord(null);
       }
     } catch (err) {
-      // #region agent log
-      fetch('/api/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({hypothesisId:'B',location:'edit/[id]/page.tsx:catch',message:'fetchProperty catch',data:{errMessage:err instanceof Error ? err.message : String(err),errName:err instanceof Error ? err.name : ''}})}).catch(()=>{});
-      // #endregion
       setError(err instanceof Error ? err.message : "Failed to fetch property");
       setProperty(null);
       setLandlord(null);
@@ -167,10 +144,6 @@ const PropertyEditPage: React.FC = () => {
   }, [propertyId]);
 
   useEffect(() => {
-    // #region agent log
-    const skip = !propertyId || (lastFetchedIdRef.current === propertyId && property != null);
-    fetch('/api/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({hypothesisId:'C',location:'edit/[id]/page.tsx:effect',message:'effect run',data:{propertyId,lastFetchedId:lastFetchedIdRef.current,hasProperty:property!=null,skip}})}).catch(()=>{});
-    // #endregion
     if (!propertyId) return;
     if (lastFetchedIdRef.current === propertyId && property != null) return;
     fetchProperty();
@@ -230,16 +203,16 @@ const PropertyEditPage: React.FC = () => {
       setSaving(true);
       showToast("info", "Updating property...");
 
-      const res = await fetch("/api/v1/properties/update-property", {
+      const { adminFetch } = await import("@/lib/admin-api");
+      const { adminRoutes } = await import("@/lib/admin-routes");
+      const result = await adminFetch(adminRoutes.property(propertyId), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ id: propertyId, updates: formData }),
+        body: JSON.stringify({ updates: formData }),
       });
-      const json = await res.json();
 
-      if (!res.ok || !json.success) {
-        throw new Error(json.error || "Failed to update property");
+      if (!result.ok) {
+        throw new Error(result.error || "Failed to update property");
       }
 
       showToast("success", "Property has successfully been updated!");
@@ -265,19 +238,24 @@ const PropertyEditPage: React.FC = () => {
     const fetchUsers = async () => {
       setTransferLoading(true);
       try {
-        const q = transferSearch ? `&search=${encodeURIComponent(transferSearch)}` : "";
-        const res = await fetch(`/api/v1/users?limit=50&offset=0${q}`, {
-          credentials: "include",
+        const { adminList, mapAppUser } = await import("@/lib/admin-api");
+        const { adminRoutes } = await import("@/lib/admin-routes");
+        const list = await adminList<Record<string, unknown>>(adminRoutes.users(), {
+          limit: "50",
+          offset: "0",
+          ...(transferSearch ? { search: transferSearch } : {}),
         });
-        const json = await res.json();
-        if (json.success && Array.isArray(json.data)) {
+        if (!list.error) {
           setTransferUsers(
-            json.data.map((u: { id: string; name?: string | null; email?: string | null; avatar?: string | null }) => ({
-              id: u.id,
-              name: u.name ?? null,
-              email: u.email ?? null,
-              avatar: u.avatar ?? null,
-            }))
+            list.items.map((row) => {
+              const u = mapAppUser(row);
+              return {
+                id: u.id,
+                name: u.name ?? null,
+                email: u.email ?? null,
+                avatar: u.avatar ?? null,
+              };
+            })
           );
         } else {
           setTransferUsers([]);
@@ -298,18 +276,18 @@ const PropertyEditPage: React.FC = () => {
     }
     setTransferSubmitting(true);
     try {
-      const res = await fetch("/api/v1/properties/transfer-ownership", {
+      const { adminFetch } = await import("@/lib/admin-api");
+      const { adminRoutes } = await import("@/lib/admin-routes");
+      const result = await adminFetch(adminRoutes.transferOwnershipTransfer(), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({
           property_uuid: propertyId,
           new_owner_id: transferSelectedId,
         }),
       });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        throw new Error(json.error || "Transfer failed");
+      if (!result.ok) {
+        throw new Error(result.error || "Transfer failed");
       }
       showToast("success", "Ownership transferred successfully");
       setTransferModalOpen(false);

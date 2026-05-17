@@ -31,13 +31,17 @@ export default function EditPaymentIntent() {
   const fetchPaymentIntent = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/payments?id=${paymentIntentId}`);
-      
-      if (!response.ok) {
-        throw new Error("Failed to fetch payment intent");
+      const { adminFetch } = await import("@/lib/admin-api");
+      const { adminRoutes } = await import("@/lib/admin-routes");
+      const result = await adminFetch<PaymentIntentDetail>(
+        adminRoutes.paymentIntent(paymentIntentId)
+      );
+
+      if (!result.ok || !result.data) {
+        throw new Error(result.error || "Failed to fetch payment intent");
       }
-      
-      const data = await response.json();
+
+      const data = result.data;
       setPaymentIntent(data);
       
       // Populate form data
@@ -56,14 +60,12 @@ export default function EditPaymentIntent() {
 
   const fetchCustomers = useCallback(async () => {
     try {
-      const response = await fetch("/api/customer");
-      
-      if (!response.ok) {
-        throw new Error("Failed to fetch customers");
+      const { adminList } = await import("@/lib/admin-api");
+      const { adminRoutes } = await import("@/lib/admin-routes");
+      const list = await adminList<Customer>(adminRoutes.customers());
+      if (!list.error) {
+        setCustomers(list.items || []);
       }
-      
-      const data = await response.json();
-      setCustomers(data.items || []);
     } catch (err) {
       console.error("Failed to fetch customers:", err);
     }
@@ -106,17 +108,16 @@ export default function EditPaymentIntent() {
         updatePayload.metadata = formData.metadata;
       }
 
-      const response = await fetch(`/api/payments?id=${paymentIntentId}`, {
+      const { adminFetch } = await import("@/lib/admin-api");
+      const { adminRoutes } = await import("@/lib/admin-routes");
+      const result = await adminFetch(adminRoutes.paymentIntent(paymentIntentId), {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updatePayload),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to update payment intent");
+      if (!result.ok) {
+        throw new Error(result.error || "Failed to update payment intent");
       }
 
       // Redirect to payment intent detail page

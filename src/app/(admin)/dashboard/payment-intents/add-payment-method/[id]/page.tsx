@@ -34,14 +34,17 @@ export default function AddPaymentMethod() {
   const fetchPaymentIntent = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/payments?id=${paymentIntentId}`);
-      
-      if (!response.ok) {
-        throw new Error("Failed to fetch payment intent");
+      const { adminFetch } = await import("@/lib/admin-api");
+      const { adminRoutes } = await import("@/lib/admin-routes");
+      const result = await adminFetch<PaymentIntentDetail>(
+        adminRoutes.paymentIntent(paymentIntentId)
+      );
+
+      if (!result.ok || !result.data) {
+        throw new Error(result.error || "Failed to fetch payment intent");
       }
-      
-      const data = await response.json();
-      setPaymentIntent(data);
+
+      setPaymentIntent(result.data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
@@ -68,11 +71,19 @@ export default function AddPaymentMethod() {
   // Fetch customer payment methods when payment intent is loaded
   const fetchCustomerPaymentMethods = useCallback(async () => {
     try {
-      const response = await fetch(`/api/payment-methods?customer_id=${paymentIntent?.customer?.id}`);
-      
-      if (response.ok) {
-        const data = await response.json();
-        setCustomerPaymentMethods(data.data || []);
+      const { adminFetch } = await import("@/lib/admin-api");
+      const { adminRoutes } = await import("@/lib/admin-routes");
+      const customerId = paymentIntent?.customer?.id;
+      if (!customerId) return;
+
+      const result = await adminFetch<{ data?: unknown[]; items?: unknown[] }>(
+        adminRoutes.paymentMethods(),
+        { searchParams: { customer_id: customerId } }
+      );
+
+      if (result.ok && result.data) {
+        const payload = result.data as { data?: unknown[]; items?: unknown[] };
+        setCustomerPaymentMethods((payload.data ?? payload.items ?? []) as PaymentMethod[]);
       }
     } catch (err) {
       console.warn("Failed to fetch customer payment methods:", err);
@@ -187,29 +198,22 @@ export default function AddPaymentMethod() {
       
       console.log('Request body for storing payment method:', requestBody);
       
-      let storeResponse;
       try {
-        storeResponse = await fetch('/api/payment-methods', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+        const { adminFetch } = await import("@/lib/admin-api");
+        const { adminRoutes } = await import("@/lib/admin-routes");
+        const storeResult = await adminFetch(adminRoutes.paymentMethods(), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(requestBody),
         });
-        console.log('Store response status:', storeResponse.status);
+        if (!storeResult.ok) {
+          throw new Error(storeResult.error || "Failed to store payment method");
+        }
+        console.log("Payment Method stored successfully:", storeResult.data);
       } catch (storeError) {
         console.error('Error storing payment method:', storeError);
         throw new Error(`Failed to store payment method: ${storeError instanceof Error ? storeError.message : 'Unknown error'}`);
       }
-
-      if (!storeResponse.ok) {
-        const errorData = await storeResponse.json();
-        console.error('Store payment method error:', errorData);
-        throw new Error(errorData.error || 'Failed to store payment method');
-      }
-
-      const storeResult = await storeResponse.json();
-      console.log('Payment Method stored successfully:', storeResult);
       
       // Step 3: Attach the payment method to the payment intent
       console.log('Attaching payment method to payment intent...');
@@ -245,24 +249,21 @@ export default function AddPaymentMethod() {
       
       console.log('Attach payment method request body:', requestBody);
       
-      const response = await fetch(`/api/payments/attach-method`, {
+      const { adminFetch } = await import("@/lib/admin-api");
+      const { adminRoutes } = await import("@/lib/admin-routes");
+      const response = await adminFetch(adminRoutes.paymentAttachMethod(paymentIntentId), {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(requestBody),
       });
-      
-      console.log('Attach payment method response status:', response.status);
-      
+
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = { error: response.error };
         console.error('Attach payment method error:', errorData);
         throw new Error(errorData.error || "Failed to attach payment method");
       }
       
-      const responseData = await response.json();
-      console.log('Attach payment method success:', responseData);
+      console.log("Attach payment method success:", response.data);
       
       // Redirect back to payment intent details
       console.log('Redirecting to payment intent details...');

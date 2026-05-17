@@ -17,13 +17,6 @@ interface AppUser {
   updated_at?: string | null;
 }
 
-interface UsersListResponse {
-  success: boolean;
-  data?: AppUser[];
-  pagination?: { total: number; limit: number; offset: number; hasMore: boolean };
-  error?: string;
-}
-
 function formatLocation(address: AppUser["address"]): string {
   if (!address) return "—";
   if (typeof address === "string") return address;
@@ -59,20 +52,25 @@ export default function AppCustomersPage() {
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch("/api/v1/users?limit=50&offset=0&role=user", {
-        credentials: "include",
+      const { adminList, mapAppUser } = await import("@/lib/admin-api");
+      const { adminRoutes } = await import("@/lib/admin-routes");
+      const list = await adminList<Record<string, unknown>>(adminRoutes.users(), {
+        limit: "50",
+        offset: "0",
       });
-      const json: UsersListResponse = await res.json();
 
-      if (!res.ok || !json.success) {
-        setError(json.error ?? "Failed to fetch users");
+      if (list.error) {
+        setError(list.error);
         setUsers([]);
         setTotal(0);
         return;
       }
 
-      setUsers(json.data ?? []);
-      setTotal(json.pagination?.total ?? (json.data ?? []).length);
+      const rows = list.items
+        .map((row) => mapAppUser(row))
+        .filter((u) => u.status === "user" || u.status === null);
+      setUsers(rows);
+      setTotal(list.pagination?.total ?? rows.length);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
       setUsers([]);

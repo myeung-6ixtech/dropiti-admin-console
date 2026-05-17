@@ -18,14 +18,17 @@ export default function PaymentIntentDetail() {
   const fetchPaymentIntent = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/payments?id=${paymentIntentId}`);
-      
-      if (!response.ok) {
-        throw new Error("Failed to fetch payment intent");
+      const { adminFetch } = await import("@/lib/admin-api");
+      const { adminRoutes } = await import("@/lib/admin-routes");
+      const result = await adminFetch<PaymentIntentDetail>(
+        adminRoutes.paymentIntent(paymentIntentId)
+      );
+
+      if (!result.ok || !result.data) {
+        throw new Error(result.error || "Failed to fetch payment intent");
       }
-      
-      const data = await response.json() as PaymentIntentDetail;
-      setPaymentIntent(data);
+
+      setPaymentIntent(result.data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {

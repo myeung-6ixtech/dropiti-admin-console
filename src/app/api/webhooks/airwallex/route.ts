@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getBearerToken } from "@/utils/auth";
+import { getAirwallexBearerToken } from "@/lib/server-airwallex-auth";
 
 // Calculate platform fee based on payment type
 function calculatePlatformFee(amount: number, paymentType: string): number {
@@ -16,7 +16,7 @@ function calculatePlatformFee(amount: number, paymentType: string): number {
 // Auto-create transfer for successful payments
 async function createAutoTransfer(paymentData: Record<string, unknown>) {
   try {
-    const token = await getBearerToken();
+    const token = await getAirwallexBearerToken();
     if (!token) {
       console.error("Authentication failed for auto-transfer");
       return;

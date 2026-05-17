@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Button from "@/components/ui/button/Button";
 import { PencilIcon, TrashBinIcon, UserIcon, PlusIcon } from "@/icons";
-import { Customer, CustomersResponse } from "@/types";
+import { Customer } from "@/types";
 
 export default function Customers() {
   const router = useRouter();
@@ -20,14 +20,13 @@ export default function Customers() {
   const fetchCustomers = async () => {
     try {
       setLoading(true);
-      const response = await fetch("/api/customer");
-      
-      if (!response.ok) {
-        throw new Error("Failed to fetch customers");
+      const { adminList } = await import("@/lib/admin-api");
+      const { adminRoutes } = await import("@/lib/admin-routes");
+      const list = await adminList<Customer>(adminRoutes.customers());
+      if (list.error) {
+        throw new Error(list.error);
       }
-      
-      const data: CustomersResponse = await response.json();
-      setCustomers(data.items || []);
+      setCustomers(list.items || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
@@ -44,12 +43,14 @@ export default function Customers() {
     if (!selectedCustomer) return;
 
     try {
-      const response = await fetch(`/api/customer?id=${selectedCustomer.id}`, {
+      const { adminFetch } = await import("@/lib/admin-api");
+      const { adminRoutes } = await import("@/lib/admin-routes");
+      const result = await adminFetch(adminRoutes.customer(selectedCustomer.id), {
         method: "DELETE",
       });
 
-      if (!response.ok) {
-        throw new Error("Failed to delete customer");
+      if (!result.ok) {
+        throw new Error(result.error || "Failed to delete customer");
       }
 
       // Remove from local state

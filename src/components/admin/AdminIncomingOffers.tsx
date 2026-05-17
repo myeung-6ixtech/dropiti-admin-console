@@ -2,6 +2,11 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { adminRoutes } from "@/lib/admin-routes";
+import {
+  functionsBffUrl,
+  parseFunctionsEnvelope,
+} from "@/lib/nhost-functions";
 
 export type AdminOfferRow = {
   id: number;
@@ -80,17 +85,26 @@ export function AdminIncomingOffers({ propertyUuid, statusFilter, title }: Props
       if (propertyUuid) params.set("propertyUuid", propertyUuid);
       if (statusFilter) params.set("status", statusFilter);
 
-      const res = await fetch(`/api/v1/admin/offers/incoming?${params.toString()}`, {
-        credentials: "include",
-      });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        setError(json.error || "Failed to load incoming offers");
+      const res = await fetch(
+        functionsBffUrl(adminRoutes.offersIncoming(), params),
+        { credentials: "include" }
+      );
+      const parsed = await parseFunctionsEnvelope<{
+        items: AdminOfferRow[];
+        pagination?: {
+          total: number;
+          limit: number;
+          offset: number;
+          hasMore: boolean;
+        };
+      }>(res);
+      if (!res.ok || parsed.error || !parsed.data) {
+        setError(parsed.error || "Failed to load incoming offers");
         setOffers([]);
         return;
       }
-      setOffers(Array.isArray(json.data) ? (json.data as AdminOfferRow[]) : []);
-      setPagination(json.pagination ?? null);
+      setOffers(Array.isArray(parsed.data.items) ? parsed.data.items : []);
+      setPagination(parsed.data.pagination ?? null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to fetch offers");
       setOffers([]);

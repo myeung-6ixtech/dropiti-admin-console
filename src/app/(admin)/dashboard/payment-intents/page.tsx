@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Button from "@/components/ui/button/Button";
 import { PencilIcon, TrashBinIcon, DollarLineIcon, PlusIcon, EyeIcon } from "@/icons";
-import { PaymentIntentDetail, PaymentIntentsResponse } from "@/types";
+import { PaymentIntentDetail } from "@/types";
 
 export default function PaymentIntents() {
   const router = useRouter();
@@ -20,14 +20,13 @@ export default function PaymentIntents() {
   const fetchPaymentIntents = async () => {
     try {
       setLoading(true);
-      const response = await fetch("/api/payments");
-      
-      if (!response.ok) {
-        throw new Error("Failed to fetch payment intents");
+      const { adminList } = await import("@/lib/admin-api");
+      const { adminRoutes } = await import("@/lib/admin-routes");
+      const list = await adminList<PaymentIntentDetail>(adminRoutes.paymentIntents());
+      if (list.error) {
+        throw new Error(list.error);
       }
-      
-      const data: PaymentIntentsResponse = await response.json();
-      setPaymentIntents(data.items || []);
+      setPaymentIntents(list.items || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
@@ -44,12 +43,15 @@ export default function PaymentIntents() {
     if (!selectedPaymentIntent) return;
 
     try {
-      const response = await fetch(`/api/payments?id=${selectedPaymentIntent.id}`, {
-        method: "DELETE",
-      });
+      const { adminFetch } = await import("@/lib/admin-api");
+      const { adminRoutes } = await import("@/lib/admin-routes");
+      const result = await adminFetch(
+        adminRoutes.paymentCancel(selectedPaymentIntent.id),
+        { method: "POST" }
+      );
 
-      if (!response.ok) {
-        throw new Error("Failed to delete payment intent");
+      if (!result.ok) {
+        throw new Error(result.error || "Failed to delete payment intent");
       }
 
       // Remove from local state

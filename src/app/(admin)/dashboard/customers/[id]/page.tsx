@@ -18,14 +18,15 @@ export default function CustomerDetail() {
   const fetchCustomer = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/customer?id=${customerId}`);
-      
-      if (!response.ok) {
-        throw new Error("Failed to fetch customer");
+      const { adminFetch } = await import("@/lib/admin-api");
+      const { adminRoutes } = await import("@/lib/admin-routes");
+      const result = await adminFetch<Customer>(adminRoutes.customer(customerId));
+
+      if (!result.ok || !result.data) {
+        throw new Error(result.error || "Failed to fetch customer");
       }
-      
-      const data = await response.json();
-      setCustomer(data);
+
+      setCustomer(result.data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
@@ -35,11 +36,16 @@ export default function CustomerDetail() {
 
   const fetchPaymentMethods = useCallback(async () => {
     try {
-      const response = await fetch(`/api/payment-consents?customer_id=${customerId}`);
-      
-      if (response.ok) {
-        const data = await response.json();
-        setPaymentMethods(data.data || []);
+      const { adminFetch } = await import("@/lib/admin-api");
+      const { adminRoutes } = await import("@/lib/admin-routes");
+      const result = await adminFetch<{ data?: unknown[]; items?: unknown[] }>(
+        adminRoutes.paymentConsents(),
+        { searchParams: { customer_id: customerId } }
+      );
+
+      if (result.ok && result.data) {
+        const payload = result.data as { data?: unknown[]; items?: unknown[] };
+        setPaymentMethods(payload.data ?? payload.items ?? []);
       }
     } catch (err) {
       console.warn("Failed to fetch payment consents:", err);

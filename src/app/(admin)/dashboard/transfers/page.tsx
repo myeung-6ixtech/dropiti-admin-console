@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Button from "@/components/ui/button/Button";
 import { PencilIcon, TrashBinIcon, DollarLineIcon, PlusIcon, EyeIcon } from "@/icons";
-import { Transfer, TransfersResponse } from "@/types";
+import { Transfer } from "@/types";
 
 export default function Transfers() {
   const router = useRouter();
@@ -20,14 +20,13 @@ export default function Transfers() {
   const fetchTransfers = async () => {
     try {
       setLoading(true);
-      const response = await fetch("/api/transfers");
-      
-      if (!response.ok) {
-        throw new Error("Failed to fetch transfers");
+      const { adminList } = await import("@/lib/admin-api");
+      const { adminRoutes } = await import("@/lib/admin-routes");
+      const list = await adminList<Transfer>(adminRoutes.transfers());
+      if (list.error) {
+        throw new Error(list.error);
       }
-      
-      const data: TransfersResponse = await response.json();
-      setTransfers(data.items || []);
+      setTransfers(list.items || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
@@ -44,12 +43,14 @@ export default function Transfers() {
     if (!selectedTransfer) return;
 
     try {
-      const response = await fetch(`/api/transfers/cancel?id=${selectedTransfer.id}`, {
+      const { adminFetch } = await import("@/lib/admin-api");
+      const { adminRoutes } = await import("@/lib/admin-routes");
+      const result = await adminFetch(adminRoutes.transferCancel(selectedTransfer.id), {
         method: "POST",
       });
 
-      if (!response.ok) {
-        throw new Error("Failed to cancel transfer");
+      if (!result.ok) {
+        throw new Error(result.error || "Failed to cancel transfer");
       }
 
       // Remove from local state

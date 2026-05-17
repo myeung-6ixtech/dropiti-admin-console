@@ -17,14 +17,17 @@ export default function BeneficiaryDetail() {
   const fetchBeneficiary = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/beneficiaries?id=${beneficiaryId}`);
-      
-      if (!response.ok) {
-        throw new Error("Failed to fetch beneficiary");
+      const { adminFetch } = await import("@/lib/admin-api");
+      const { adminRoutes } = await import("@/lib/admin-routes");
+      const result = await adminFetch<Beneficiary>(
+        adminRoutes.beneficiary(beneficiaryId)
+      );
+
+      if (!result.ok || !result.data) {
+        throw new Error(result.error || "Failed to fetch beneficiary");
       }
-      
-      const data = await response.json();
-      setBeneficiary(data);
+
+      setBeneficiary(result.data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
