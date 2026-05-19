@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { rewriteAdminBffPath } from "@/lib/bff-route-rewrite";
 import { getFunctionsBaseUrl } from "@/lib/nhost-functions";
 
 const ACCESS_TOKEN_COOKIE = "nhost_access_token";
@@ -22,9 +23,15 @@ async function proxyToFunctions(
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
 
-  const subPath = pathSegments.join("/");
+  const { pathSegments: upstreamSegments, searchParams } = rewriteAdminBffPath(
+    request.method,
+    pathSegments,
+    request.nextUrl.searchParams
+  );
+
+  const subPath = upstreamSegments.join("/");
   const url = new URL(`${base}/v1/${subPath}`);
-  request.nextUrl.searchParams.forEach((value, key) => {
+  searchParams.forEach((value, key) => {
     url.searchParams.set(key, value);
   });
 

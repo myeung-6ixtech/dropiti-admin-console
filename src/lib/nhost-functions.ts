@@ -34,32 +34,71 @@ export function functionsBffUrl(adminPath: string, search?: URLSearchParams): st
   return `${FUNCTIONS_BFF_PREFIX}/${path}${qs ? `?${qs}` : ""}`;
 }
 
+const MAX_BODY_SNIPPET = 500;
+
+function snippetForError(text: string, status: number): string {
+  const t = text.replace(/\s+/g, " ").trim();
+  if (!t) return `Non-JSON response (HTTP ${status})`;
+  if (t.length <= MAX_BODY_SNIPPET) return t;
+  return `${t.slice(0, MAX_BODY_SNIPPET)}…`;
+}
+
+/**
+ * Parse BFF / Nhost Functions JSON envelope, or surface plain-text / HTML error bodies
+ * without throwing (e.g. upstream returns `item not found` instead of `{ ok: false, error }`).
+ */
 export async function parseFunctionsEnvelope<T>(
   res: Response
 ): Promise<{ data: T | null; error: string | null; status: number }> {
-  const json = (await res.json()) as FunctionsEnvelope<T> | {
+  const text = await res.text();
+  const status = res.status;
+
+  if (!text.trim()) {
+    return {
+      data: null,
+      error: res.ok ? null : `Empty response (HTTP ${status})`,
+      status,
+    };
+  }
+
+  let json: unknown;
+  try {
+    json = JSON.parse(text) as unknown;
+  } catch {
+    return {
+      data: null,
+      error: snippetForError(text, status),
+      status,
+    };
+  }
+
+  const body = json as FunctionsEnvelope<T> | {
     success?: boolean;
     data?: T;
     error?: string;
     pagination?: unknown;
   };
 
-  if (json && typeof json === "object" && "ok" in json && json.ok === true) {
-    return { data: json.data, error: null, status: res.status };
+  if (body && typeof body === "object" && "ok" in body && body.ok === true) {
+    return { data: body.data as T, error: null, status };
   }
 
-  if (json && typeof json === "object" && "ok" in json && json.ok === false) {
-    return { data: null, error: json.error, status: res.status };
+  if (body && typeof body === "object" && "ok" in body && body.ok === false) {
+    return {
+      data: null,
+      error: typeof body.error === "string" ? body.error : "Request failed",
+      status,
+    };
   }
 
   // Legacy Next API shape during migration
-  if (json && typeof json === "object" && "success" in json && json.success === true) {
-    return { data: json.data as T, error: null, status: res.status };
+  if (body && typeof body === "object" && "success" in body && body.success === true) {
+    return { data: body.data as T, error: null, status };
   }
 
   const err =
-    (json && typeof json === "object" && "error" in json && typeof json.error === "string"
-      ? json.error
+    (body && typeof body === "object" && "error" in body && typeof body.error === "string"
+      ? body.error
       : null) ?? "Request failed";
-  return { data: null, error: err, status: res.status };
+  return { data: null, error: err, status };
 }

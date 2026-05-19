@@ -1,15 +1,14 @@
 # Hasura GraphQL Client
 
-This directory contains the GraphQL client setup for connecting to your Hasura instance.
+> **Deprecated for this app:** Dashboard data must use **Nhost Functions** via `src/lib/admin-api.ts` (BFF). Do not point this client at Hasura using an **admin** role secret from the console.
+
+This directory contains legacy GraphQL client setup. **Prefer `admin-api.ts` + `api-doc-v1.md` for all dashboard data.**
 
 ## Environment Variables
 
-Make sure you have these environment variables set in your `.env.local` file:
+**Admin console:** Do not set GraphQL admin credentials here. Use `NEXT_PUBLIC_FUNCTIONS_URL` and the BFF (see root `.env.example`).
 
-```env
-SDK_BACKEND_URL=https://your-hasura-instance.hasura.app/v1/graphql
-SDK_HASURA_ADMIN_SECRET=your-admin-secret-here
-```
+**Standalone scripts (optional):** If you run one-off scripts outside Nhost Functions, supply your own Hasura URL and role-appropriate token in a **non-committed** env file — never commit admin secrets.
 
 ## Usage
 

@@ -10,7 +10,6 @@
   },
   "dependencies": {
     "@airwallex/components-sdk": "^1.22.0",
-    "@aws-sdk/client-s3": "^3.966.0",
     "@fullcalendar/core": "^6.1.15",
     "@fullcalendar/daygrid": "^6.1.15",
     "@fullcalendar/interaction": "^6.1.15",
@@ -25,10 +24,7 @@
     "@tailwindcss/postcss": "^4.0.9",
     "apexcharts": "^4.3.0",
     "autoprefixer": "^10.4.20",
-    "axios": "^1.13.6",
     "flatpickr": "^4.6.13",
-    "graphql": "^16.11.0",
-    "graphql-request": "^7.2.0",
     "jose": "^6.2.1",
     "lucide-react": "^0.577.0",
     "next": "15.2.8",
@@ -38,7 +34,6 @@
     "react-dnd-html5-backend": "^16.0.1",
     "react-dom": "^19.0.0",
     "react-dropzone": "^14.3.5",
-    "sharp": "^0.34.5",
     "swiper": "^11.2.0",
     "tailwind-merge": "^2.6.0"
   },

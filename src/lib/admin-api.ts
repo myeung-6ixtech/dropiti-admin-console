@@ -1,6 +1,11 @@
 /**
  * Single entry for admin Nhost Functions via same-origin BFF.
  * Path segments: use `adminRoutes` from `@/lib/admin-routes` (e.g. `adminRoutes.users()`).
+ *
+ * Flow: browser → `functionsBffUrl()` → `/api/v1/bff/functions/...` (reads httpOnly
+ * `nhost_access_token`) → `{NEXT_PUBLIC_FUNCTIONS_URL}/v1/...` with Bearer.
+ *
+ * Spec: `dropiti-nhost/documentation/api-doc-v1.md` (auth §3, envelope §4, admin routes §11).
  */
 import { adminRoutes } from "@/lib/admin-routes";
 import {
@@ -132,7 +137,7 @@ type BatchUploadItem = {
   fileId: string;
 };
 
-/** Presign via admin/upload/batch then PUT files to Nhost Storage. */
+/** Presign via admin/upload/batch then PUT each file to the presigned S3 URL from the response. */
 export async function adminUploadImages(
   files: File[]
 ): Promise<{ ok: boolean; uploaded: BatchUploadItem[]; error: string | null }> {
