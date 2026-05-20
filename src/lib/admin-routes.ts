@@ -44,6 +44,9 @@ export const adminRoutes = {
   transferCancel: (id: string) => `admin/transfers/${seg(id)}/cancel`,
 
   transferOwnershipTransfer: () => "admin/transfer-ownership/transfer",
+  transferOwnershipInvite: () => "admin/transfer-ownership/invite",
+  transferOwnershipResend: () => "admin/transfer-ownership/resend",
+  transferOwnershipStatus: () => "admin/transfer-ownership/status",
 
   /** GET /v1/admin/analytics/dashboard — KPI aggregates (see api-doc-v1.md §11). */
   analyticsDashboard: () => "admin/analytics/dashboard",
