@@ -96,14 +96,14 @@ Direct mapping of current frontend state vs `api-doc-v1.md` standard.
 | **Auth — logout** | `POST /api/auth/logout` (DB invalidation) | `nhost.auth.signOut()` | ❌ Legacy route |
 | **Auth — token for API calls** | `admin_session` cookie value | `Authorization: Bearer <nhost_access_token>` | ❌ Wrong token format for Nhost Functions |
 | **Data fetching** | `graphql-request` + `HASURA_ADMIN_SECRET` | `adminFetch()` → Nhost Function → `hasuraQuery()` | ❌ Admin secret exposed in server component layer |
-| **Properties page** | Direct Hasura `AdminListProperties` query | `GET /v1/admin/properties` | ❌ Bypasses Function layer |
+| **Properties page** | Direct Hasura `AdminListProperties` query | `GET /v1/admin/properties/list` (BFF: `admin/properties`) | ❌ Bypasses Function layer |
 | **Offers/incoming** | Direct Hasura `AdminIncomingOffers` + batched lookup | `GET /v1/admin/offers/incoming` | ❌ Bypasses Function layer |
 | **Payments** | `@airwallex/components-sdk` with `AIRWALLEX_API_KEY` in env | `GET /v1/admin/payment-intents` (server-side proxy) | ❌ API key on client |
 | **Uploads** | `@aws-sdk/client-s3` + `S3_BUCKET_*` in env | `POST /v1/admin/upload/presign` → PUT to S3 | ❌ AWS credentials on client |
 | **middleware.ts** | Reads `nhost_access_token`, verifies HS256, checks admin role | Reads `nhost_access_token`, verifies HS256, checks admin role | ✅ Already correct |
 | **CORS** | N/A — same-origin Next.js routes | `Authorization: Bearer` header on every Function call | ❌ Cross-origin header not being set |
 | **Response shape** | Custom per route (`{ success: true }`, `{ isAuthenticated }`) | `{ ok: true, data: T }` or `{ ok: false, error: string }` | ❌ Shape mismatch — must check `result.ok` |
-| **Properties query shape** | Full `AdminListProperties` with all columns | `AdminListProperties` via `/v1/admin/properties` | ⚠️ Query is correct — routing is wrong |
+| **Properties query shape** | Full `AdminListProperties` with all columns | `AdminListProperties` via `/v1/admin/properties/list` | ⚠️ Query is correct — routing is wrong |
 | **Offers property context** | Slim batched lookup (5 fields only) | Slim lookup via `/v1/admin/offers/incoming` | ⚠️ Query is correct — routing is wrong |
 | **`sharp`** | `^0.34.5` in `package.json` | Banned — native binary | ❌ Must remove |
 | **`@nhost/nextjs`** | Not installed | Required for `NhostProvider`, `NhostClient` | ❌ Missing |
@@ -268,7 +268,7 @@ Define separate TypeScript interfaces for each shape. Never use a single merged 
 ```ts
 // src/types/admin.ts
 
-// Shape 1 — Full listing (from AdminListProperties via /v1/admin/properties)
+// Shape 1 — Full listing (from AdminListProperties via /v1/admin/properties/list)
 export interface AdminPropertyListItem {
   id:                    number
   property_uuid:         string
@@ -348,7 +348,7 @@ export interface AdminPropertyDetail extends AdminPropertyListItem {
 
 | ✅ Do | ❌ Do Not |
 |---|---|
-| Use `/v1/admin/properties` for the properties management page | Populate the properties table from `/v1/admin/offers/incoming` |
+| Use `/v1/admin/properties/list` (or BFF `admin/properties`) for the properties management page | Populate the properties table from `/v1/admin/offers/incoming` |
 | Use `/v1/admin/offers/incoming` for the offer inbox | Render offer card using full property shape |
 | Read `completion_percentage` only from `AdminPropertyListItem` | Read it from `AdminIncomingOffer.property_listing` |
 | Make a separate call to `/v1/admin/properties/get-property?propertyUuid=` for property detail from an offer | Try to derive property detail from the offer slim shape |
@@ -689,7 +689,7 @@ This page has the known query inconsistency. Apply §8a constraints from `dropit
   ```ts
   const result = await adminPropertiesApi.list({ limit: 20, offset: 0 }, token)
   ```
-- [ ] **4.4** The response shape from `/v1/admin/properties` returns `AdminPropertyListItem[]`. Ensure the TypeScript type used matches exactly — all columns including `completion_percentage`, `landlord_user_id`, `status`, `images`, `primary_image` must be present.
+- [ ] **4.4** The response shape from `/v1/admin/properties/list` returns `AdminPropertyListItem[]`. Ensure the TypeScript type used matches exactly — all columns including `completion_percentage`, `landlord_user_id`, `status`, `images`, `primary_image` must be present.
 - [ ] **4.5** For property detail (clicking into a listing), call:
   ```ts
   const result = await adminPropertiesApi.get(propertyUuid, token)
@@ -893,12 +893,12 @@ curl -sS "https://fcuycyemqprjrkbshlcj.functions.ap-southeast-1.nhost.run/v1/hea
 
 # Admin route with valid admin token → 200
 curl -sS -H "Authorization: Bearer <ADMIN_TOKEN>" \
-  "https://fcuycyemqprjrkbshlcj.functions.ap-southeast-1.nhost.run/v1/admin/properties?limit=5"
+  "https://fcuycyemqprjrkbshlcj.functions.ap-southeast-1.nhost.run/v1/admin/properties/list?limit=5"
 # → { "ok": true, "data": { "items": [...], "total": N } }
 
 # Same route with non-admin token → 403
 curl -sS -H "Authorization: Bearer <USER_TOKEN>" \
-  "https://fcuycyemqprjrkbshlcj.functions.ap-southeast-1.nhost.run/v1/admin/properties"
+  "https://fcuycyemqprjrkbshlcj.functions.ap-southeast-1.nhost.run/v1/admin/properties/list"
 # → { "ok": false, "error": "Forbidden" }
 
 # Upload presign → S3 URL

@@ -33,7 +33,6 @@ export function rewriteAdminBffPath(
   const [, resource, a, b] = path;
 
   // GET collection routes → .../index (Nhost maps admin/<domain>/index.ts to /v1/admin/<domain>/index).
-  // Properties list uses functions/admin/properties.ts → /v1/admin/properties (no /index).
   if (
     method === "GET" &&
     path.length === 2 &&
@@ -54,6 +53,9 @@ export function rewriteAdminBffPath(
 
   // admin/properties
   if (resource === "properties") {
+    if (path.length === 2 && method === "GET") {
+      return { pathSegments: ["admin", "properties", "list"], searchParams: params };
+    }
     if (path.length === 2 && method === "POST") {
       return { pathSegments: ["admin", "properties", "create-property"], searchParams: params };
     }

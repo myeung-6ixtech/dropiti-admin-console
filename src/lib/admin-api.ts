@@ -5,7 +5,7 @@
  * Flow: browser → `functionsBffUrl()` → `/api/v1/bff/functions/...` (reads httpOnly
  * `nhost_access_token`) → `{NEXT_PUBLIC_FUNCTIONS_URL}/v1/...` with Bearer.
  *
- * Spec: `dropiti-nhost/documentation/api-doc-v1.md` (auth §3, envelope §4, admin routes §11).
+ * Spec: `dropiti-nhost/documentation/api-doc-v1.md` (v2.0 — auth §3, envelope §4, admin routes §11).
  */
 import { adminRoutes } from "@/lib/admin-routes";
 import {

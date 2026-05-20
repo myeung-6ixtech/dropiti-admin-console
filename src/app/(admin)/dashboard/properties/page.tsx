@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { EyeIcon, PencilIcon } from "@/icons";
 
-/** Shape returned by GET /v1/admin/properties (BFF → AdminListProperties). */
+/** Shape from GET /v1/admin/properties/list (BFF: admin/properties → AdminListProperties). */
 interface PropertyListing {
   id: string;
   property_uuid: string;
