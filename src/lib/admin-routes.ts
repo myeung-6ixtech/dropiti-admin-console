@@ -45,5 +45,8 @@ export const adminRoutes = {
 
   transferOwnershipTransfer: () => "admin/transfer-ownership/transfer",
 
+  /** GET /v1/admin/analytics/dashboard — KPI aggregates (see api-doc-v1.md §11). */
+  analyticsDashboard: () => "admin/analytics/dashboard",
+
   administratorUser: (id: string) => `admin/administrator-users/${seg(id)}`,
 } as const;

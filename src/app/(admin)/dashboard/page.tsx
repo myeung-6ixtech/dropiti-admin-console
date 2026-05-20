@@ -2,18 +2,55 @@
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import Button from "@/components/ui/button/Button";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+
+export type AdminDashboardKpis = {
+  users: number;
+  properties: number;
+  activeOffers: number;
+  pendingOffers: number;
+  draftProperties: number;
+};
 
 export default function Dashboard() {
   const { user, logout, isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
+  const [kpis, setKpis] = useState<AdminDashboardKpis | null>(null);
+  const [kpisError, setKpisError] = useState<string | null>(null);
+  const [kpisLoading, setKpisLoading] = useState(false);
 
-  // Redirect to signin if not authenticated (use useEffect to avoid render-time navigation)
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       router.push("/signin");
     }
   }, [isAuthenticated, isLoading, router]);
+
+  useEffect(() => {
+    if (!isAuthenticated || isLoading) return;
+
+    const loadKpis = async () => {
+      setKpisLoading(true);
+      setKpisError(null);
+      try {
+        const { adminFetch } = await import("@/lib/admin-api");
+        const { adminRoutes } = await import("@/lib/admin-routes");
+        const result = await adminFetch<AdminDashboardKpis>(adminRoutes.analyticsDashboard());
+        if (!result.ok || !result.data) {
+          setKpisError(result.error ?? "Failed to load dashboard stats");
+          setKpis(null);
+          return;
+        }
+        setKpis(result.data);
+      } catch (e) {
+        setKpisError(e instanceof Error ? e.message : "Failed to load dashboard stats");
+        setKpis(null);
+      } finally {
+        setKpisLoading(false);
+      }
+    };
+
+    void loadKpis();
+  }, [isAuthenticated, isLoading]);
 
   if (isLoading) {
     return (
@@ -43,13 +80,48 @@ export default function Dashboard() {
                 You are logged in as the system administrator
               </p>
             </div>
-            <Button
-              onClick={logout}
-              variant="outline"
-              size="sm"
-            >
+            <Button onClick={logout} variant="outline" size="sm">
               Logout
             </Button>
+          </div>
+
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+              Platform overview
+            </h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+              From <code className="rounded bg-gray-100 px-1 dark:bg-gray-700">GET /v1/admin/analytics/dashboard</code>{" "}
+              (api-doc-v1 §11)
+            </p>
+            {kpisLoading && (
+              <p className="text-sm text-gray-600 dark:text-gray-400">Loading stats…</p>
+            )}
+            {kpisError && (
+              <p className="text-sm text-amber-700 dark:text-amber-300">{kpisError}</p>
+            )}
+            {kpis && !kpisLoading && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+                {[
+                  { label: "Users", value: kpis.users },
+                  { label: "Properties", value: kpis.properties },
+                  { label: "Active offers", value: kpis.activeOffers },
+                  { label: "Pending offers", value: kpis.pendingOffers },
+                  { label: "Draft listings", value: kpis.draftProperties },
+                ].map((card) => (
+                  <div
+                    key={card.label}
+                    className="rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-gray-600 dark:bg-gray-700/50"
+                  >
+                    <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                      {card.label}
+                    </p>
+                    <p className="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">
+                      {card.value.toLocaleString()}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -62,30 +134,28 @@ export default function Dashboard() {
                   <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
                     Email:
                   </span>
-                  <span className="ml-2 text-gray-900 dark:text-white">
-                    {user?.email}
-                  </span>
+                  <span className="ml-2 text-gray-900 dark:text-white">{user?.email}</span>
                 </div>
                 <div>
                   <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
                     Role:
                   </span>
                   <span className="ml-2 text-gray-900 dark:text-white">
-                    {user?.role === 'super_admin' 
-                      ? 'Super Administrator' 
-                      : user?.role === 'system_admin'
-                      ? 'System Administrator'
-                      : user?.role === 'user_admin'
-                      ? 'User Administrator'
-                      : user?.role === 'content_admin'
-                      ? 'Content Administrator'
-                      : user?.role === 'analytics_admin'
-                      ? 'Analytics Administrator'
-                      : user?.role === 'support_admin'
-                      ? 'Support Administrator'
-                      : user?.role === 'viewer'
-                      ? 'Viewer'
-                      : user?.role || 'No role assigned'}
+                    {user?.role === "super_admin"
+                      ? "Super Administrator"
+                      : user?.role === "system_admin"
+                        ? "System Administrator"
+                        : user?.role === "user_admin"
+                          ? "User Administrator"
+                          : user?.role === "content_admin"
+                            ? "Content Administrator"
+                            : user?.role === "analytics_admin"
+                              ? "Analytics Administrator"
+                              : user?.role === "support_admin"
+                                ? "Support Administrator"
+                                : user?.role === "viewer"
+                                  ? "Viewer"
+                                  : user?.role || "No role assigned"}
                   </span>
                 </div>
               </div>
@@ -133,4 +203,4 @@ export default function Dashboard() {
       </div>
     </div>
   );
-} 
+}

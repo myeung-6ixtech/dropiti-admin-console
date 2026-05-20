@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { EyeIcon, PencilIcon } from "@/icons";
 
-/** Shape returned by GET /api/v1/properties/get-listings (API guide format) */
+/** Shape returned by GET /v1/admin/properties (BFF → AdminListProperties). */
 interface PropertyListing {
   id: string;
   property_uuid: string;
@@ -14,6 +14,9 @@ interface PropertyListing {
   bedrooms?: number;
   bathrooms?: number;
   imageUrl?: string;
+  images?: string[];
+  status?: string;
+  completionPercentage?: number;
 }
 
 const TITLE_MAX_LEN = 30;

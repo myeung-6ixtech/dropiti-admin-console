@@ -107,18 +107,49 @@ export function mapAppUser(row: Record<string, unknown>) {
   };
 }
 
-/** Map property listing row to dashboard list card shape. */
+/** Map property listing row to dashboard list card shape (AdminListProperties / v6 §8a). */
 export function mapPropertyListing(row: Record<string, unknown>) {
+  const currency =
+    (typeof row.currency === "string" && row.currency) ||
+    (row.rental_price_currency as string | undefined) ||
+    "HKD";
+  const imageUrl =
+    (typeof row.primary_image === "string" && row.primary_image) ||
+    (row.display_image as string | undefined);
+  const images = Array.isArray(row.images)
+    ? (row.images as string[])
+    : Array.isArray(row.uploaded_images)
+      ? (row.uploaded_images as string[])
+      : undefined;
+  const nBed =
+    row.num_bedroom != null && row.num_bedroom !== ""
+      ? Number(row.num_bedroom)
+      : row.bedrooms != null && row.bedrooms !== ""
+        ? Number(row.bedrooms)
+        : NaN;
+  const nBath =
+    row.num_bathroom != null && row.num_bathroom !== ""
+      ? Number(row.num_bathroom)
+      : row.bathrooms != null && row.bathrooms !== ""
+        ? Number(row.bathrooms)
+        : NaN;
+
   return {
     id: String(row.id ?? ""),
     property_uuid: String(row.property_uuid ?? ""),
     title: String(row.title ?? ""),
     description: String(row.description ?? ""),
     price: Number(row.rental_price ?? 0),
-    priceCurrency: (row.rental_price_currency as string) ?? "MYR",
-    bedrooms: row.bedrooms as number | undefined,
-    bathrooms: row.bathrooms as number | undefined,
-    imageUrl: row.display_image as string | undefined,
+    priceCurrency: currency,
+    bedrooms: Number.isFinite(nBed) ? nBed : undefined,
+    bathrooms: Number.isFinite(nBath) ? nBath : undefined,
+    imageUrl,
+    images,
+    status: typeof row.status === "string" ? row.status : undefined,
+    completionPercentage:
+      row.completion_percentage != null && row.completion_percentage !== ""
+        ? Number(row.completion_percentage)
+        : undefined,
   };
 }
 
