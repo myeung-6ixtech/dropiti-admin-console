@@ -17,6 +17,12 @@ export type FunctionsFail = {
 
 export type FunctionsEnvelope<T> = FunctionsOk<T> | FunctionsFail;
 
+/**
+ * BFF returns this in `details.code` when the request reached the proxy without
+ * `nhost_access_token` (distinct from Nhost `{ error: "Unauthorized" }` after Bearer forward).
+ */
+export const BFF_MISSING_ACCESS_TOKEN_CODE = "MISSING_NHOST_ACCESS_TOKEN_COOKIE" as const;
+
 export function getFunctionsBaseUrl(): string | null {
   const url = process.env.NEXT_PUBLIC_FUNCTIONS_URL?.replace(/\/$/, "");
   return url && url.length > 0 ? url : null;
@@ -84,9 +90,24 @@ export async function parseFunctionsEnvelope<T>(
   }
 
   if (body && typeof body === "object" && "ok" in body && body.ok === false) {
+    let errMsg = typeof body.error === "string" ? body.error : "Request failed";
+    const failBody = body as FunctionsFail & { details?: { code?: string; hint?: string } };
+    const code =
+      failBody.details && typeof failBody.details === "object" && typeof failBody.details.code === "string"
+        ? failBody.details.code
+        : undefined;
+    const hint =
+      failBody.details && typeof failBody.details === "object" && typeof failBody.details.hint === "string"
+        ? failBody.details.hint
+        : undefined;
+    if (code === BFF_MISSING_ACCESS_TOKEN_CODE) {
+      errMsg = hint
+        ? `${errMsg} — ${hint}`
+        : `${errMsg} — No session cookie for this site; use the same host you used to sign in (e.g. localhost vs 127.0.0.1).`;
+    }
     return {
       data: null,
-      error: typeof body.error === "string" ? body.error : "Request failed",
+      error: errMsg,
       status,
     };
   }

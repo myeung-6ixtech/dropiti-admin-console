@@ -7,7 +7,7 @@ Tracks pages or features that **middleware** may reference (`/settings`, `/repor
 | Surface | BFF path segment | Nhost route |
 |---------|------------------|-------------|
 | Dashboard KPIs | `admin/analytics/dashboard` | `GET /v1/admin/analytics/dashboard` |
-| Properties list | `admin/properties` → rewrite `.../index` | `GET /v1/admin/properties/index` |
+| Properties list | `admin/properties` (no rewrite) | `GET /v1/admin/properties` (`functions/admin/properties.ts`) |
 | Media library | `admin/media` | via rewrite to `.../media/index` |
 | Payments / customers / etc. | See [admin-routes.ts](../../src/lib/admin-routes.ts) | api-doc §11 |
 

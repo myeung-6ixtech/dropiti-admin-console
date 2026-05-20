@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { rewriteAdminBffPath } from "@/lib/bff-route-rewrite";
-import { getFunctionsBaseUrl } from "@/lib/nhost-functions";
+import { BFF_MISSING_ACCESS_TOKEN_CODE, getFunctionsBaseUrl } from "@/lib/nhost-functions";
 
 const ACCESS_TOKEN_COOKIE = "nhost_access_token";
 
@@ -20,7 +20,20 @@ async function proxyToFunctions(
   const cookieStore = await cookies();
   const accessToken = cookieStore.get(ACCESS_TOKEN_COOKIE)?.value;
   if (!accessToken) {
-    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+    const isDev = process.env.NODE_ENV !== "production";
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "Session required",
+        details: {
+          code: BFF_MISSING_ACCESS_TOKEN_CODE,
+          ...(isDev && {
+            hint: "No httpOnly nhost_access_token on this request — use the same origin as login (localhost vs 127.0.0.1), credentials: include on fetch, and inspect the GET (not OPTIONS).",
+          }),
+        },
+      },
+      { status: 401 }
+    );
   }
 
   const { pathSegments: upstreamSegments, searchParams } = rewriteAdminBffPath(
