@@ -8,7 +8,7 @@ Tracks pages or features that **middleware** may reference (`/settings`, `/repor
 |---------|------------------|-------------|
 | Dashboard KPIs | `admin/analytics/dashboard` | `GET /v1/admin/analytics/dashboard` |
 | Properties list | `admin/properties` BFF → `admin/properties/list` | `GET /v1/admin/properties/list` |
-| Media library | `admin/media` | via rewrite to `.../media/index` |
+| Media library | `admin/media` | `GET /v1/admin/media` (`functions/admin/media/index.ts`) |
 | Payments / customers / etc. | See [admin-routes.ts](../../src/lib/admin-routes.ts) | api-doc §11 |
 
 ## Not wired yet

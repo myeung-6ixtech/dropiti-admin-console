@@ -1,6 +1,9 @@
 /**
  * Maps REST-style admin BFF paths (admin console) to Nhost static function paths.
  * Nhost does not support dynamic [id] route files; legacy action segments are used upstream.
+ *
+ * Nhost maps `functions/admin/<domain>/index.ts` to **`/v1/admin/<domain>`** (no `/index` suffix).
+ * Only rewrite when the on-disk file name differs (e.g. `GET admin/properties` → `admin/properties/list`).
  */
 
 const UUID_RE =
@@ -31,19 +34,6 @@ export function rewriteAdminBffPath(
   }
 
   const [, resource, a, b] = path;
-
-  // GET collection routes → .../index (Nhost maps admin/<domain>/index.ts to /v1/admin/<domain>/index).
-  if (
-    method === "GET" &&
-    path.length === 2 &&
-    (resource === "users" ||
-      resource === "customers" ||
-      resource === "beneficiaries" ||
-      resource === "transfers" ||
-      resource === "payment-intents")
-  ) {
-    return { pathSegments: ["admin", resource, "index"], searchParams: params };
-  }
 
   // GET admin/users/:userId
   if (resource === "users" && a && path.length === 3 && method === "GET" && isResourceId(a)) {
@@ -84,11 +74,6 @@ export function rewriteAdminBffPath(
     return { pathSegments: ["admin", "offers", "incoming-detail"], searchParams: params };
   }
 
-  // GET admin/media → index handler
-  if (resource === "media" && path.length === 2 && method === "GET") {
-    return { pathSegments: ["admin", "media", "index"], searchParams: params };
-  }
-
   // admin/customers/:id[/client-secret]
   if (resource === "customers" && a && isResourceId(a)) {
     if (path.length === 3) {
@@ -112,18 +97,12 @@ export function rewriteAdminBffPath(
   }
 
   if (resource === "payment-methods") {
-    if (path.length === 2 && method === "GET") {
-      return { pathSegments: ["admin", "payment-methods", "index"], searchParams: params };
-    }
     if (path.length === 2 && method === "POST") {
       return { pathSegments: ["admin", "payment-methods", "create"], searchParams: params };
     }
   }
 
   if (resource === "payment-consents") {
-    if (path.length === 2 && method === "GET") {
-      return { pathSegments: ["admin", "payment-consents", "index"], searchParams: params };
-    }
     if (path.length === 2 && method === "POST") {
       return { pathSegments: ["admin", "payment-consents", "create"], searchParams: params };
     }

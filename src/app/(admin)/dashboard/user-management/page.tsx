@@ -22,6 +22,7 @@ export default function UserManagement() {
       const list = await adminList<Record<string, unknown>>(adminRoutes.users(), {
         limit: "100",
         offset: "0",
+        defaultRole: "admin",
       });
 
       if (!list.error) {
@@ -132,7 +133,7 @@ export default function UserManagement() {
           User Management
         </h1>
         <p className="text-gray-600 dark:text-gray-400">
-          Manage system users and their permissions
+          Manage administrator accounts (user_profile.defaultRole = admin)
         </p>
       </div>
 

@@ -57,6 +57,7 @@ export default function AppCustomersPage() {
       const list = await adminList<Record<string, unknown>>(adminRoutes.users(), {
         limit: "50",
         offset: "0",
+        defaultRole: "user",
       });
 
       if (list.error) {
@@ -66,11 +67,8 @@ export default function AppCustomersPage() {
         return;
       }
 
-      const rows = list.items
-        .map((row) => mapAppUser(row))
-        .filter((u) => u.status === "user" || u.status === null);
-      setUsers(rows);
-      setTotal(list.pagination?.total ?? rows.length);
+      setUsers(list.items.map((row) => mapAppUser(row)));
+      setTotal(list.pagination?.total ?? list.items.length);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
       setUsers([]);
