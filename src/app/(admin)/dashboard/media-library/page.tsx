@@ -5,6 +5,17 @@ import Image from "next/image";
 import Button from "@/components/ui/button/Button";
 import { useDropzone } from "react-dropzone";
 import { useToast } from "@/context/ToastContext";
+import {
+  DROPZONE_IMAGE_ACCEPT,
+  formatMaxUploadSizeLabel,
+  getProxyUploadMaxBytes,
+  MAX_BATCH_UPLOAD_FILES,
+} from "@/lib/upload-policy";
+import {
+  extractNhostFileId,
+  getMediaDisplayUrl,
+  isNhostStorageUrl,
+} from "@/lib/media-url";
 
 interface MediaAsset {
   id: string;
@@ -87,44 +98,53 @@ export default function MediaLibrary() {
 
   const onDrop = useCallback(
     async (acceptedFiles: File[]) => {
+      if (acceptedFiles.length === 0) return;
+
       setUploading(true);
-      let successCount = 0;
+      try {
+        const { adminUploadImages } = await import("@/lib/admin-api");
+        const upload = await adminUploadImages(acceptedFiles);
 
-      for (const file of acceptedFiles) {
-        try {
-          const { adminUploadImages } = await import("@/lib/admin-api");
-          const upload = await adminUploadImages([file]);
-
-          if (upload.ok) {
-            showToast("success", `Uploaded: ${file.name}`);
-            successCount++;
-          } else {
-            showToast("error", `Failed to upload: ${file.name} - ${upload.error}`);
+        if (upload.ok) {
+          const count = upload.uploaded.length;
+          showToast(
+            "success",
+            count === 1
+              ? `Uploaded: ${upload.uploaded[0]?.filename ?? acceptedFiles[0]?.name}`
+              : `Uploaded ${count} file${count === 1 ? "" : "s"}`
+          );
+          if (upload.error) {
+            showToast("warning", upload.error);
           }
-        } catch {
-          showToast("error", `Error uploading: ${file.name}`);
+          void loadMediaAssets(appliedSearch, offset);
+        } else {
+          showToast("error", upload.error ?? "Upload failed");
         }
-      }
-
-      setUploading(false);
-
-      if (successCount > 0) {
-        void loadMediaAssets(appliedSearch, offset);
+      } catch (err) {
+        showToast("error", err instanceof Error ? err.message : "Upload failed");
+      } finally {
+        setUploading(false);
       }
     },
     [showToast, appliedSearch, offset, loadMediaAssets]
   );
 
+  const maxUploadLabel = formatMaxUploadSizeLabel();
+
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: {
-      "image/png": [".png"],
-      "image/jpeg": [".jpg", ".jpeg"],
-      "image/webp": [".webp"],
-      "image/gif": [".gif"],
-    },
-    maxSize: 10 * 1024 * 1024,
+    accept: DROPZONE_IMAGE_ACCEPT,
+    maxFiles: MAX_BATCH_UPLOAD_FILES,
+    maxSize: getProxyUploadMaxBytes(),
+    disabled: uploading,
   });
+
+  const handleImageError = useCallback(() => {
+    showToast(
+      "error",
+      "Image failed to load. Ensure you are signed in, or enable public read on dropiti-bucket in Nhost Storage permissions."
+    );
+  }, [showToast]);
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -179,7 +199,7 @@ export default function MediaLibrary() {
               {uploading ? "Uploading..." : isDragActive ? "Drop files here" : "Drag & drop images here"}
             </p>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              or click to browse (PNG, JPG, WebP, GIF • Max 10MB)
+              or click to browse (PNG, JPG, WebP, GIF • Max {maxUploadLabel} • up to {MAX_BATCH_UPLOAD_FILES} files)
             </p>
           </div>
         </div>
@@ -219,12 +239,13 @@ export default function MediaLibrary() {
                 className="group relative aspect-square cursor-pointer overflow-hidden rounded-lg border border-gray-200 transition-all hover:border-blue-500 dark:border-gray-800"
               >
                 <Image
-                  src={asset.public_url}
+                  src={getMediaDisplayUrl(asset.public_url)}
                   alt={asset.original_filename || "Media asset"}
                   fill
                   unoptimized
                   className="object-cover"
                   sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+                  onError={handleImageError}
                 />
                 <div className="absolute inset-0 flex items-end bg-black/60 p-2 opacity-0 transition-opacity group-hover:opacity-100">
                   <p className="w-full truncate text-xs text-white">
@@ -278,12 +299,13 @@ export default function MediaLibrary() {
 
               <div className="relative aspect-video w-full">
                 <Image
-                  src={selectedAsset.public_url}
+                  src={getMediaDisplayUrl(selectedAsset.public_url)}
                   alt={selectedAsset.original_filename || "Asset"}
                   fill
                   unoptimized
                   className="rounded-lg object-contain"
                   sizes="(max-width: 1024px) 100vw, 1024px"
+                  onError={handleImageError}
                 />
               </div>
 
@@ -292,9 +314,29 @@ export default function MediaLibrary() {
                   <strong className="text-gray-700 dark:text-gray-300">Filename:</strong>
                   <p className="text-gray-600 dark:text-gray-400">{selectedAsset.original_filename}</p>
                 </div>
+                {isNhostStorageUrl(selectedAsset.public_url) && extractNhostFileId(selectedAsset.public_url) && (
+                  <div>
+                    <strong className="text-gray-700 dark:text-gray-300">Nhost file ID:</strong>
+                    <div className="flex items-center gap-2">
+                      <code className="flex-1 overflow-x-auto rounded bg-gray-100 px-2 py-1 text-xs dark:bg-gray-800">
+                        {extractNhostFileId(selectedAsset.public_url)}
+                      </code>
+                      <Button
+                        onClick={() =>
+                          copyToClipboard(extractNhostFileId(selectedAsset.public_url) ?? "")
+                        }
+                      >
+                        Copy
+                      </Button>
+                    </div>
+                  </div>
+                )}
                 <div>
-                  <strong className="text-gray-700 dark:text-gray-300">URL:</strong>
-                  <div className="flex items-center gap-2">
+                  <strong className="text-gray-700 dark:text-gray-300">Public URL:</strong>
+                  <p className="text-xs text-gray-500 dark:text-gray-500">
+                    Canonical URL stored in Hasura (used by dropiti-v3 when bucket is public-read).
+                  </p>
+                  <div className="mt-1 flex items-center gap-2">
                     <code className="flex-1 overflow-x-auto rounded bg-gray-100 px-2 py-1 text-xs dark:bg-gray-800">
                       {selectedAsset.public_url}
                     </code>
@@ -302,8 +344,11 @@ export default function MediaLibrary() {
                   </div>
                 </div>
                 <div>
-                  <strong className="text-gray-700 dark:text-gray-300">S3 Key:</strong>
-                  <div className="flex items-center gap-2">
+                  <strong className="text-gray-700 dark:text-gray-300">Storage path:</strong>
+                  <p className="text-xs text-gray-500 dark:text-gray-500">
+                    Logical object key (not a browser URL).
+                  </p>
+                  <div className="mt-1 flex items-center gap-2">
                     <code className="flex-1 overflow-x-auto rounded bg-gray-100 px-2 py-1 text-xs dark:bg-gray-800">
                       {selectedAsset.s3_key}
                     </code>

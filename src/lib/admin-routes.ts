@@ -20,6 +20,7 @@ export const adminRoutes = {
 
   media: () => "admin/media",
   uploadBatch: () => "admin/upload/batch",
+  uploadRegister: () => "admin/upload/register",
 
   customers: () => "admin/customers",
   customer: (id: string) => `admin/customers/${seg(id)}`,

@@ -12,6 +12,12 @@ import {
   functionsBffUrl,
   parseFunctionsEnvelope,
 } from "@/lib/nhost-functions";
+import {
+  ADMIN_UPLOAD_PROXY_PATH,
+  getProxyUploadMaxBytes,
+  isNhostMediaBackend,
+  isProxyEligibleSize,
+} from "@/lib/upload-policy";
 
 export { functionsBffUrl, parseFunctionsEnvelope };
 
@@ -166,9 +172,163 @@ type BatchUploadItem = {
   filename: string;
   uploadUrl: string;
   fileId: string;
+  publicUrl?: string;
+  s3Key?: string;
+  mediaId?: string | null;
 };
 
-/** Presign via admin/upload/batch then PUT each file to the presigned S3 URL from the response. */
+async function sha256Hex(file: File): Promise<string> {
+  const buffer = await file.arrayBuffer();
+  const digest = await crypto.subtle.digest("SHA-256", buffer);
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+async function adminUploadImageProxy(
+  file: File
+): Promise<{ item: BatchUploadItem | null; error: string | null }> {
+  const sha256 = await sha256Hex(file);
+  const form = new FormData();
+  form.append("file", file);
+  form.append("sha256", sha256);
+
+  const res = await fetch(ADMIN_UPLOAD_PROXY_PATH, {
+    method: "POST",
+    credentials: "include",
+    body: form,
+  });
+
+  const parsed = await parseFunctionsEnvelope<{
+    filename: string;
+    publicUrl: string;
+    s3Key: string;
+    fileId: string;
+    mediaId?: string | null;
+  }>(res);
+
+  if (parsed.error || !parsed.data) {
+    return {
+      item: null,
+      error: parsed.error ?? `${file.name}: proxy upload failed`,
+    };
+  }
+
+  return {
+    item: {
+      filename: parsed.data.filename ?? file.name,
+      uploadUrl: "",
+      fileId: parsed.data.fileId,
+      publicUrl: parsed.data.publicUrl,
+      s3Key: parsed.data.s3Key,
+      mediaId: parsed.data.mediaId,
+    },
+    error: null,
+  };
+}
+
+type PresignBatchItem = BatchUploadItem & {
+  publicUrl: string;
+  s3Key: string;
+  useProxy?: boolean;
+};
+
+async function adminUploadImagesPresign(
+  files: File[]
+): Promise<{ uploaded: BatchUploadItem[]; error: string | null }> {
+  const filesWithHash = await Promise.all(
+    files.map(async (file) => ({
+      file,
+      sha256: await sha256Hex(file),
+    }))
+  );
+
+  const result = await adminFetch<{ items: PresignBatchItem[] }>(adminRoutes.uploadBatch(), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(
+      filesWithHash.map(({ file, sha256 }) => ({
+        filename: file.name,
+        mimeType: file.type || "application/octet-stream",
+        sha256,
+      }))
+    ),
+  });
+
+  if (result.error || !result.data?.items?.length) {
+    return { uploaded: [], error: result.error ?? "Presign failed" };
+  }
+
+  const uploaded: BatchUploadItem[] = [];
+  const errors: string[] = [];
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    const item = result.data.items[i];
+    if (!item) continue;
+
+    if (item.useProxy || !item.uploadUrl) {
+      const proxyResult = await adminUploadImageProxy(file);
+      if (proxyResult.item) uploaded.push(proxyResult.item);
+      else if (proxyResult.error) errors.push(proxyResult.error);
+      continue;
+    }
+
+    const putRes = await fetch(item.uploadUrl, {
+      method: "PUT",
+      body: file,
+      headers: { "Content-Type": file.type || "application/octet-stream" },
+    });
+
+    if (!putRes.ok) {
+      errors.push(`${file.name}: direct upload failed (${putRes.status})`);
+      continue;
+    }
+
+    const sha256 = filesWithHash[i]?.sha256 ?? (await sha256Hex(file));
+    const register = await adminFetch<{
+      filename: string;
+      publicUrl: string;
+      s3Key: string;
+      fileId: string;
+      mediaId?: string | null;
+    }>(adminRoutes.uploadRegister(), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        s3Key: item.s3Key,
+        publicUrl: item.publicUrl,
+        filename: file.name,
+        mimeType: file.type || "application/octet-stream",
+        sizeBytes: file.size,
+        sha256,
+      }),
+    });
+
+    if (register.error || !register.data) {
+      errors.push(register.error ?? `${file.name}: register failed`);
+      continue;
+    }
+
+    uploaded.push({
+      filename: register.data.filename ?? file.name,
+      uploadUrl: item.uploadUrl,
+      fileId: register.data.fileId,
+      publicUrl: register.data.publicUrl,
+      s3Key: register.data.s3Key,
+      mediaId: register.data.mediaId,
+    });
+  }
+
+  return {
+    uploaded,
+    error: errors.length > 0 ? errors.join("; ") : uploaded.length > 0 ? null : "Upload failed",
+  };
+}
+
+/**
+ * Hybrid upload: proxy (same-origin) or presign + direct PUT (S3 only, > proxy cap).
+ * With Nhost Storage (`NEXT_PUBLIC_MEDIA_STORAGE_BACKEND=nhost`), all files use proxy only.
+ */
 export async function adminUploadImages(
   files: File[]
 ): Promise<{ ok: boolean; uploaded: BatchUploadItem[]; error: string | null }> {
@@ -176,36 +336,55 @@ export async function adminUploadImages(
     return { ok: false, uploaded: [], error: "No files" };
   }
 
-  const result = await adminFetch<{ items: BatchUploadItem[] }>(adminRoutes.uploadBatch(), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(
-      files.map((file) => ({
-        filename: file.name,
-        mimeType: file.type || "application/octet-stream",
-      }))
-    ),
-  });
-
-  if (result.error || !result.data?.items?.length) {
-    return { ok: false, uploaded: [], error: result.error ?? "Presign failed" };
-  }
+  const maxBytes = getProxyUploadMaxBytes();
+  const nhostOnly = isNhostMediaBackend();
 
   const uploaded: BatchUploadItem[] = [];
-  for (let i = 0; i < files.length; i++) {
-    const item = result.data.items[i];
-    if (!item?.uploadUrl) continue;
-    const putRes = await fetch(item.uploadUrl, {
-      method: "PUT",
-      body: files[i],
-      headers: { "Content-Type": files[i].type || "application/octet-stream" },
-    });
-    if (putRes.ok) uploaded.push(item);
+  const errors: string[] = [];
+
+  if (nhostOnly) {
+    for (const file of files) {
+      if (!isProxyEligibleSize(file.size)) {
+        errors.push(`${file.name}: exceeds ${maxBytes} byte limit for Nhost proxy upload`);
+        continue;
+      }
+      const result = await adminUploadImageProxy(file);
+      if (result.item) uploaded.push(result.item);
+      else if (result.error) errors.push(result.error);
+    }
+
+    return {
+      ok: uploaded.length > 0,
+      uploaded,
+      error: errors.length > 0 ? errors.join("; ") : null,
+    };
+  }
+
+  const proxyFiles: File[] = [];
+  const presignFiles: File[] = [];
+  for (const file of files) {
+    if (isProxyEligibleSize(file.size)) {
+      proxyFiles.push(file);
+    } else {
+      presignFiles.push(file);
+    }
+  }
+
+  for (const file of proxyFiles) {
+    const result = await adminUploadImageProxy(file);
+    if (result.item) uploaded.push(result.item);
+    else if (result.error) errors.push(result.error);
+  }
+
+  if (presignFiles.length > 0) {
+    const presignResult = await adminUploadImagesPresign(presignFiles);
+    uploaded.push(...presignResult.uploaded);
+    if (presignResult.error) errors.push(presignResult.error);
   }
 
   return {
     ok: uploaded.length > 0,
     uploaded,
-    error: uploaded.length > 0 ? null : "Upload failed",
+    error: errors.length > 0 ? errors.join("; ") : null,
   };
 }

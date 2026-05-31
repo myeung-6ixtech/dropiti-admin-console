@@ -7,11 +7,11 @@ const ToastContainer: React.FC = () => {
   const { toasts, removeToast } = useToast();
 
   return (
-    <div className="fixed top-4 right-4 z-50 space-y-2 max-w-sm">
+    <div className="fixed top-4 right-4 z-999999 space-y-2 max-w-sm pointer-events-none">
       {toasts.map((toast) => (
         <div
           key={toast.id}
-          className="transform transition-all duration-300 ease-in-out"
+          className="pointer-events-auto transform transition-all duration-300 ease-in-out"
         >
           <Toast
             type={toast.type}

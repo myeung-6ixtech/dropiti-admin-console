@@ -2,6 +2,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import Image from 'next/image';
+import { useToast } from '@/context/ToastContext';
+import {
+  DROPZONE_IMAGE_ACCEPT,
+  formatMaxUploadSizeLabel,
+  getProxyUploadMaxBytes,
+  MAX_BATCH_UPLOAD_FILES,
+} from '@/lib/upload-policy';
+import { getMediaDisplayUrl } from '@/lib/media-url';
 
 interface MediaAsset {
   id: string;
@@ -51,6 +59,7 @@ export function MediaLibraryPickerDialog({
   const [offset, setOffset] = useState(0);
   const [total, setTotal] = useState(0);
   const [hasMore, setHasMore] = useState(false);
+  const { showToast } = useToast();
 
   // Debounce search
   useEffect(() => {
@@ -120,30 +129,43 @@ export function MediaLibraryPickerDialog({
 
   // File upload handler
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
+    if (acceptedFiles.length === 0) return;
+
     setUploading(true);
-    
+
     try {
       const { adminUploadImages } = await import("@/lib/admin-api");
-      await adminUploadImages(acceptedFiles);
-      
-      // Refresh the list after upload
-      await fetchAssets(true);
+      const upload = await adminUploadImages(acceptedFiles);
+
+      if (upload.ok) {
+        const count = upload.uploaded.length;
+        showToast(
+          "success",
+          count === 1
+            ? `Uploaded: ${upload.uploaded[0]?.filename ?? acceptedFiles[0]?.name}`
+            : `Uploaded ${count} file${count === 1 ? "" : "s"}`
+        );
+        if (upload.error) {
+          showToast("warning", upload.error);
+        }
+        await fetchAssets(true);
+      } else {
+        showToast("error", upload.error ?? "Upload failed");
+      }
     } catch (error) {
-      console.error('Error uploading files:', error);
+      showToast("error", error instanceof Error ? error.message : "Upload failed");
     } finally {
       setUploading(false);
     }
-  }, [fetchAssets]);
+  }, [fetchAssets, showToast]);
+
+  const maxUploadLabel = formatMaxUploadSizeLabel();
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: {
-      'image/jpeg': ['.jpg', '.jpeg'],
-      'image/png': ['.png'],
-      'image/webp': ['.webp'],
-      'image/gif': ['.gif'],
-    },
-    maxSize: 10 * 1024 * 1024, // 10MB
+    accept: DROPZONE_IMAGE_ACCEPT,
+    maxFiles: MAX_BATCH_UPLOAD_FILES,
+    maxSize: getProxyUploadMaxBytes(),
     disabled: !allowUpload || uploading,
   });
 
@@ -234,7 +256,7 @@ export function MediaLibraryPickerDialog({
                     Drag and drop images here, or click to select files
                   </p>
                   <p className="mt-1 text-xs text-gray-500 dark:text-gray-500">
-                    JPEG, PNG, WebP, GIF up to 10MB
+                    JPEG, PNG, WebP, GIF up to {maxUploadLabel} (max {MAX_BATCH_UPLOAD_FILES} files)
                   </p>
                 </div>
               )}
@@ -278,7 +300,7 @@ export function MediaLibraryPickerDialog({
                       } ${!canSelect ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                     >
                       <Image
-                        src={asset.public_url}
+                        src={getMediaDisplayUrl(asset.public_url)}
                         alt={asset.original_filename || 'Media asset'}
                         fill
                         unoptimized
