@@ -287,7 +287,7 @@ export default function MediaLibrary() {
 
       {selectedAsset && (
         <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4"
+          className="fixed inset-0 z-9999 flex items-center justify-center bg-black/50 p-4"
           onClick={() => setSelectedAsset(null)}
         >
           <div

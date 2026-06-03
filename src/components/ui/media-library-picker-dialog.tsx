@@ -198,7 +198,7 @@ export function MediaLibraryPickerDialog({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+    <div className="fixed inset-0 z-9999 flex items-center justify-center bg-black/50">
       <div className="relative w-full max-w-5xl max-h-[90vh] bg-white dark:bg-gray-800 rounded-lg shadow-xl flex flex-col">
         {/* Header */}
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
