@@ -5,6 +5,7 @@ import { RealEstateProperty, RealEstatePropertyInsertInput } from "@/app/graphql
 import Button from "@/components/ui/button/Button";
 import { useToast } from "@/context/ToastContext";
 import { MediaLibraryPickerDialog } from "@/components/ui/media-library-picker-dialog";
+import { getMediaDisplayUrl } from "@/lib/media-url";
 import {
   BasicInfoSection,
   PropertyDetailsSection,
@@ -387,7 +388,7 @@ const PropertyEditPage: React.FC = () => {
                   <div className="mt-1 flex items-center gap-2">
                     {landlord.avatar ? (
                       <img
-                        src={landlord.avatar}
+                        src={getMediaDisplayUrl(landlord.avatar)}
                         alt={landlord.name ?? "Landlord"}
                         className="h-8 w-8 rounded-full object-cover"
                         width={32}
@@ -531,7 +532,7 @@ const PropertyEditPage: React.FC = () => {
                     >
                       {u.avatar ? (
                         <img
-                          src={u.avatar}
+                          src={getMediaDisplayUrl(u.avatar)}
                           alt=""
                           className="h-9 w-9 rounded-full object-cover"
                           width={36}

@@ -170,5 +170,17 @@ export function rewriteAdminBffPath(
     }
   }
 
+  // GET admin/media/:fileId (Nhost file UUID) → stream binary via get-file
+  if (
+    resource === "media" &&
+    a &&
+    path.length === 3 &&
+    method === "GET" &&
+    UUID_RE.test(a)
+  ) {
+    params.set("id", a);
+    return { pathSegments: ["admin", "media", "get-file"], searchParams: params };
+  }
+
   return { pathSegments: path, searchParams: params };
 }

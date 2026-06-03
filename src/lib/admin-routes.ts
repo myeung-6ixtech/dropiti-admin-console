@@ -19,6 +19,8 @@ export const adminRoutes = {
     `admin/offers/incoming/${seg(offerId)}`,
 
   media: () => "admin/media",
+  /** GET stream — use `/api/v1/admin/media/file/{fileId}` in UI (binary); Functions path is get-file. */
+  mediaGetFile: (fileId: string) => `admin/media/get-file?id=${seg(fileId)}`,
   uploadBatch: () => "admin/upload/batch",
   uploadRegister: () => "admin/upload/register",
 

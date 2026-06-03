@@ -6,6 +6,7 @@ import { ChevronLeftIcon, UserIcon, MailIcon } from "@/icons";
 import { useToast } from "@/context/ToastContext";
 import { MediaLibraryPickerDialog } from "@/components/ui/media-library-picker-dialog";
 import Image from "next/image";
+import { getMediaDisplayUrl } from "@/lib/media-url";
 
 interface AdministratorUser {
   id: string;
@@ -299,7 +300,7 @@ export default function EditUser() {
                   {formData.avatar ? (
                     <div className="relative w-20 h-20 rounded-full overflow-hidden border-2 border-gray-300 dark:border-gray-600">
                       <Image
-                        src={formData.avatar}
+                        src={getMediaDisplayUrl(formData.avatar)}
                         alt="Profile avatar"
                         fill
                         className="object-cover"

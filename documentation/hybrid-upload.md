@@ -1,5 +1,8 @@
 # Hybrid admin media upload
 
+> **Canonical spec:** [media-upload.md](./media-upload.md) (dedup/repair/migrate, API contract, env).  
+> This document retains S3 presign/CORS/architecture detail for the **S3 fallback** path.
+
 This document describes how the **Dropiti Admin Console** uploads media using **Nhost Storage** (`dropiti-bucket`) by default, with optional **S3/Lightsail fallback**.
 
 ## Storage backend

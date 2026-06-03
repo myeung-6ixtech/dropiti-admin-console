@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import Image from 'next/image';
+import { getMediaDisplayUrl } from '@/lib/media-url';
 
 interface ImageUploadDndProps {
   images: string[];
@@ -104,7 +105,7 @@ function SortableImage({
       className="relative group aspect-square rounded-lg border-2 border-gray-200 dark:border-gray-700 overflow-hidden bg-gray-50 dark:bg-gray-800"
     >
       <Image
-        src={url}
+        src={getMediaDisplayUrl(url)}
         alt=""
         fill
         unoptimized

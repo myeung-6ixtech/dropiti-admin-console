@@ -9,7 +9,7 @@ import {
   getProxyUploadMaxBytes,
   MAX_BATCH_UPLOAD_FILES,
 } from '@/lib/upload-policy';
-import { getMediaDisplayUrl } from '@/lib/media-url';
+import { getMediaCanonicalUrl, getMediaDisplayUrl, normalizeMediaAssetFields } from '@/lib/media-url';
 
 interface MediaAsset {
   id: string;
@@ -93,10 +93,11 @@ export function MediaLibraryPickerDialog({
       });
 
       if (!list.error) {
+        const items = list.items.map((item) => normalizeMediaAssetFields(item));
         if (reset) {
-          setAssets(list.items);
+          setAssets(items);
         } else {
-          setAssets((prev) => [...prev, ...list.items]);
+          setAssets((prev) => [...prev, ...items]);
         }
         setTotal(list.pagination?.total ?? list.items.length);
         setHasMore(list.pagination?.hasMore ?? false);
@@ -138,13 +139,13 @@ export function MediaLibraryPickerDialog({
       const upload = await adminUploadImages(acceptedFiles);
 
       if (upload.ok) {
-        const count = upload.uploaded.length;
-        showToast(
-          "success",
-          count === 1
-            ? `Uploaded: ${upload.uploaded[0]?.filename ?? acceptedFiles[0]?.name}`
-            : `Uploaded ${count} file${count === 1 ? "" : "s"}`
-        );
+        const summary =
+          upload.messages.length > 0
+            ? upload.messages.length === 1
+              ? upload.messages[0]!
+              : `Processed ${upload.uploaded.length} file(s): ${upload.messages.join("; ")}`
+            : `Uploaded ${upload.uploaded.length} file(s)`;
+        showToast("success", summary);
         if (upload.error) {
           showToast("warning", upload.error);
         }
@@ -188,7 +189,7 @@ export function MediaLibraryPickerDialog({
   // Confirm selection
   const handleConfirm = () => {
     const selectedAssets = assets.filter((a) => selectedIds.has(a.id));
-    const urls = selectedAssets.map((a) => a.public_url);
+    const urls = selectedAssets.map((a) => getMediaCanonicalUrl(a));
     onSelect(urls);
     setSelectedIds(new Set()); // Clear selection
     onOpenChange(false);
@@ -300,7 +301,7 @@ export function MediaLibraryPickerDialog({
                       } ${!canSelect ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                     >
                       <Image
-                        src={getMediaDisplayUrl(asset.public_url)}
+                        src={getMediaDisplayUrl(asset)}
                         alt={asset.original_filename || 'Media asset'}
                         fill
                         unoptimized

@@ -168,14 +168,50 @@ export function toAirwallexListResponse<T>(list: AdminListResult<T>) {
   };
 }
 
-type BatchUploadItem = {
+/** Response from POST /v1/admin/upload/image (Functions envelope `data`). */
+export type AdminUploadImageResult = {
+  filename: string;
+  publicUrl: string;
+  s3Key: string;
+  fileId: string;
+  storageFileId?: string | null;
+  mediaId?: string | null;
+  sha256?: string;
+  deduped?: boolean;
+  repaired?: boolean;
+  migrated?: boolean;
+  storageBackend?: string;
+};
+
+export type BatchUploadItem = {
   filename: string;
   uploadUrl: string;
   fileId: string;
   publicUrl?: string;
   s3Key?: string;
   mediaId?: string | null;
+  deduped?: boolean;
+  repaired?: boolean;
+  migrated?: boolean;
+  storageBackend?: string;
 };
+
+export function formatUploadResultMessage(item: Pick<
+  BatchUploadItem,
+  "filename" | "deduped" | "repaired" | "migrated"
+>): string {
+  const name = item.filename || "file";
+  if (item.migrated) {
+    return `${name}: migrated to Nhost Storage`;
+  }
+  if (item.repaired) {
+    return `${name}: re-uploaded (catalog updated)`;
+  }
+  if (item.deduped) {
+    return `${name}: already in library`;
+  }
+  return `${name}: uploaded`;
+}
 
 async function sha256Hex(file: File): Promise<string> {
   const buffer = await file.arrayBuffer();
@@ -187,7 +223,7 @@ async function sha256Hex(file: File): Promise<string> {
 
 async function adminUploadImageProxy(
   file: File
-): Promise<{ item: BatchUploadItem | null; error: string | null }> {
+): Promise<{ item: BatchUploadItem | null; error: string | null; messages: string[] }> {
   const sha256 = await sha256Hex(file);
   const form = new FormData();
   form.append("file", file);
@@ -199,31 +235,33 @@ async function adminUploadImageProxy(
     body: form,
   });
 
-  const parsed = await parseFunctionsEnvelope<{
-    filename: string;
-    publicUrl: string;
-    s3Key: string;
-    fileId: string;
-    mediaId?: string | null;
-  }>(res);
+  const parsed = await parseFunctionsEnvelope<AdminUploadImageResult>(res);
 
   if (parsed.error || !parsed.data) {
     return {
       item: null,
       error: parsed.error ?? `${file.name}: proxy upload failed`,
+      messages: [],
     };
   }
 
+  const item: BatchUploadItem = {
+    filename: parsed.data.filename ?? file.name,
+    uploadUrl: "",
+    fileId: parsed.data.fileId,
+    publicUrl: parsed.data.publicUrl,
+    s3Key: parsed.data.s3Key,
+    mediaId: parsed.data.mediaId,
+    deduped: parsed.data.deduped,
+    repaired: parsed.data.repaired,
+    migrated: parsed.data.migrated,
+    storageBackend: parsed.data.storageBackend,
+  };
+
   return {
-    item: {
-      filename: parsed.data.filename ?? file.name,
-      uploadUrl: "",
-      fileId: parsed.data.fileId,
-      publicUrl: parsed.data.publicUrl,
-      s3Key: parsed.data.s3Key,
-      mediaId: parsed.data.mediaId,
-    },
+    item,
     error: null,
+    messages: [formatUploadResultMessage(item)],
   };
 }
 
@@ -331,9 +369,14 @@ async function adminUploadImagesPresign(
  */
 export async function adminUploadImages(
   files: File[]
-): Promise<{ ok: boolean; uploaded: BatchUploadItem[]; error: string | null }> {
+): Promise<{
+  ok: boolean;
+  uploaded: BatchUploadItem[];
+  error: string | null;
+  messages: string[];
+}> {
   if (files.length === 0) {
-    return { ok: false, uploaded: [], error: "No files" };
+    return { ok: false, uploaded: [], error: "No files", messages: [] };
   }
 
   const maxBytes = getProxyUploadMaxBytes();
@@ -341,6 +384,7 @@ export async function adminUploadImages(
 
   const uploaded: BatchUploadItem[] = [];
   const errors: string[] = [];
+  const messages: string[] = [];
 
   if (nhostOnly) {
     for (const file of files) {
@@ -349,14 +393,19 @@ export async function adminUploadImages(
         continue;
       }
       const result = await adminUploadImageProxy(file);
-      if (result.item) uploaded.push(result.item);
-      else if (result.error) errors.push(result.error);
+      if (result.item) {
+        uploaded.push(result.item);
+        messages.push(...result.messages);
+      } else if (result.error) {
+        errors.push(result.error);
+      }
     }
 
     return {
       ok: uploaded.length > 0,
       uploaded,
       error: errors.length > 0 ? errors.join("; ") : null,
+      messages,
     };
   }
 
@@ -372,8 +421,12 @@ export async function adminUploadImages(
 
   for (const file of proxyFiles) {
     const result = await adminUploadImageProxy(file);
-    if (result.item) uploaded.push(result.item);
-    else if (result.error) errors.push(result.error);
+    if (result.item) {
+      uploaded.push(result.item);
+      messages.push(...result.messages);
+    } else if (result.error) {
+      errors.push(result.error);
+    }
   }
 
   if (presignFiles.length > 0) {
@@ -386,5 +439,6 @@ export async function adminUploadImages(
     ok: uploaded.length > 0,
     uploaded,
     error: errors.length > 0 ? errors.join("; ") : null,
+    messages,
   };
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import Button from "@/components/ui/button/Button";
 import { useDropzone } from "react-dropzone";
@@ -15,6 +15,7 @@ import {
   extractNhostFileId,
   getMediaDisplayUrl,
   isNhostStorageUrl,
+  normalizeMediaAssetFields,
 } from "@/lib/media-url";
 
 interface MediaAsset {
@@ -47,6 +48,7 @@ export default function MediaLibrary() {
   const [total, setTotal] = useState(0);
   const [selectedAsset, setSelectedAsset] = useState<MediaAsset | null>(null);
   const { showToast } = useToast();
+  const imageErrorOnceRef = useRef<Set<string>>(new Set());
 
   const loadMediaAssets = useCallback(async (searchTerm: string, newOffset: number) => {
     try {
@@ -67,7 +69,7 @@ export default function MediaLibrary() {
         return;
       }
 
-      setAssets(list.items);
+      setAssets(list.items.map((item) => normalizeMediaAssetFields(item)));
       setTotal(list.pagination?.total ?? list.items.length);
       setOffset(newOffset);
     } catch (err) {
@@ -106,13 +108,13 @@ export default function MediaLibrary() {
         const upload = await adminUploadImages(acceptedFiles);
 
         if (upload.ok) {
-          const count = upload.uploaded.length;
-          showToast(
-            "success",
-            count === 1
-              ? `Uploaded: ${upload.uploaded[0]?.filename ?? acceptedFiles[0]?.name}`
-              : `Uploaded ${count} file${count === 1 ? "" : "s"}`
-          );
+          const summary =
+            upload.messages.length > 0
+              ? upload.messages.length === 1
+                ? upload.messages[0]!
+                : `Processed ${upload.uploaded.length} file(s): ${upload.messages.join("; ")}`
+              : `Uploaded ${upload.uploaded.length} file(s)`;
+          showToast("success", summary);
           if (upload.error) {
             showToast("warning", upload.error);
           }
@@ -139,10 +141,17 @@ export default function MediaLibrary() {
     disabled: uploading,
   });
 
-  const handleImageError = useCallback(() => {
+  const handleImageError = useCallback((url?: string) => {
+    const key = (url ?? "").trim() || "unknown";
+    if (imageErrorOnceRef.current.has(key)) return;
+    imageErrorOnceRef.current.add(key);
+
+    const id = url ? extractNhostFileId(url) : null;
     showToast(
       "error",
-      "Image failed to load. Ensure you are signed in, or enable public read on dropiti-bucket in Nhost Storage permissions."
+      id
+        ? `Image failed to load (fileId=${id}). The file may be missing in Nhost Storage — try re-uploading the same image to repair.`
+        : "Image failed to load. Check Network for the image URL."
     );
   }, [showToast]);
 
@@ -239,13 +248,13 @@ export default function MediaLibrary() {
                 className="group relative aspect-square cursor-pointer overflow-hidden rounded-lg border border-gray-200 transition-all hover:border-blue-500 dark:border-gray-800"
               >
                 <Image
-                  src={getMediaDisplayUrl(asset.public_url)}
+                  src={getMediaDisplayUrl(asset)}
                   alt={asset.original_filename || "Media asset"}
                   fill
                   unoptimized
                   className="object-cover"
                   sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
-                  onError={handleImageError}
+                  onError={() => handleImageError(asset.public_url)}
                 />
                 <div className="absolute inset-0 flex items-end bg-black/60 p-2 opacity-0 transition-opacity group-hover:opacity-100">
                   <p className="w-full truncate text-xs text-white">
@@ -299,13 +308,13 @@ export default function MediaLibrary() {
 
               <div className="relative aspect-video w-full">
                 <Image
-                  src={getMediaDisplayUrl(selectedAsset.public_url)}
+                  src={getMediaDisplayUrl(selectedAsset)}
                   alt={selectedAsset.original_filename || "Asset"}
                   fill
                   unoptimized
                   className="rounded-lg object-contain"
                   sizes="(max-width: 1024px) 100vw, 1024px"
-                  onError={handleImageError}
+                  onError={() => handleImageError(selectedAsset.public_url)}
                 />
               </div>
 
