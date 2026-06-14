@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { nhostSignOut } from "@/lib/nhost";
-
-const ACCESS_TOKEN_COOKIE = "nhost_access_token";
-const REFRESH_TOKEN_COOKIE = "nhost_refresh_token";
+import { ACCESS_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE } from "@/lib/auth-session";
 
 export async function POST() {
   try {

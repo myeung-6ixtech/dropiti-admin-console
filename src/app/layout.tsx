@@ -1,15 +1,19 @@
 import { Outfit } from 'next/font/google';
 import './globals.css';
+import type { Metadata } from 'next';
 
 import { SidebarProvider } from '@/context/SidebarContext';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { AuthProvider } from '@/context/AuthContext';
 import { ToastProvider } from '@/context/ToastContext';
 import { NhostAppProvider } from '@/components/providers/NhostAppProvider';
+import { siteMetadata } from '@/lib/site-metadata';
 
 const outfit = Outfit({
   subsets: ["latin"],
 });
+
+export const metadata: Metadata = siteMetadata;
 
 export default function RootLayout({
   children,

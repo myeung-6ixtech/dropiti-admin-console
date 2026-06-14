@@ -3,7 +3,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useAuth } from "@/context/AuthContext";
 import type { AdminOfferRow } from "@/components/admin/AdminIncomingOffers";
 import { AdminOfferDetailPanel } from "@/components/admin/AdminOfferDetailPanel";
 import { adminRoutes } from "@/lib/admin-routes";
@@ -13,7 +12,6 @@ import {
 } from "@/lib/nhost-functions";
 
 export default function IncomingOfferDetailPage() {
-  const { isLoading: authLoading, isAuthenticated } = useAuth();
   const params = useParams();
   const offerId = params?.id != null ? String(params.id) : null;
 
@@ -46,18 +44,8 @@ export default function IncomingOfferDetailPage() {
   }, [offerId]);
 
   useEffect(() => {
-    if (!authLoading && isAuthenticated) {
-      void fetchOffer();
-    }
-  }, [authLoading, isAuthenticated, fetchOffer]);
-
-  if (authLoading || (!isAuthenticated && !authLoading)) {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center">
-        <div className="h-10 w-10 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
-      </div>
-    );
-  }
+    void fetchOffer();
+  }, [fetchOffer]);
 
   return (
     <div className="p-2 md:p-0">

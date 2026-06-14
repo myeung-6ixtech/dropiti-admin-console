@@ -6,6 +6,7 @@ import Button from "../ui/button/Button";
 import Input from "../form/input/InputField";
 import Label from "../form/Label";
 import { useAuth } from "@/context/AuthContext";
+import { getAdminDisplayName } from "@/lib/admin-user-display";
 
 export default function UserInfoCard() {
   const { isOpen, openModal, closeModal } = useModal();
@@ -29,7 +30,7 @@ export default function UserInfoCard() {
                 Name
               </p>
               <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                {user?.name ?? "Admin"}
+                {getAdminDisplayName(user)}
               </p>
             </div>
 
@@ -150,7 +151,7 @@ export default function UserInfoCard() {
                 <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
                   <div className="col-span-2 lg:col-span-1">
                     <Label>Name</Label>
-                    <Input type="text" defaultValue={user?.name ?? "Admin"} disabled />
+                    <Input type="text" defaultValue={getAdminDisplayName(user)} disabled />
                   </div>
 
                   <div className="col-span-2 lg:col-span-1">

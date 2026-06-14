@@ -1,16 +1,21 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { jwtVerify } from "jose";
-import { nhostRefreshToken, hasRole, extractHasuraClaims, getNhostJwtSecret } from "@/lib/nhost";
-
-const ACCESS_TOKEN_COOKIE = "nhost_access_token";
-const REFRESH_TOKEN_COOKIE = "nhost_refresh_token";
+import {
+  ACCESS_TOKEN_COOKIE,
+  REFRESH_TOKEN_COOKIE,
+  cookieOptions,
+  refreshAdminSession,
+  resolveAdminUser,
+  verifyAccessToken,
+} from "@/lib/auth-session";
 
 export async function GET() {
   try {
     const cookieStore = await cookies();
     const accessToken = cookieStore.get(ACCESS_TOKEN_COOKIE)?.value;
     const refreshToken = cookieStore.get(REFRESH_TOKEN_COOKIE)?.value;
+    const isProd = process.env.NODE_ENV === "production";
+    const opts = cookieOptions(isProd);
 
     if (!accessToken && !refreshToken) {
       return NextResponse.json(
@@ -19,51 +24,25 @@ export async function GET() {
       );
     }
 
-    const isProd = process.env.NODE_ENV === "production";
-
-    // Try to verify the access token
     if (accessToken) {
-      try {
-        const { payload } = await jwtVerify(accessToken, getNhostJwtSecret());
-        const decoded = payload as Record<string, unknown>;
-
-        if (!hasRole(decoded, "admin")) {
-          cookieStore.delete(ACCESS_TOKEN_COOKIE);
-          cookieStore.delete(REFRESH_TOKEN_COOKIE);
-          return NextResponse.json(
-            { authenticated: false, error: "Admin role required" },
-            { status: 403 }
-          );
-        }
-
-        const { userId } = extractHasuraClaims(decoded);
-
+      const verified = await verifyAccessToken(accessToken);
+      if (verified.ok) {
+        const user = await resolveAdminUser(accessToken, verified.payload);
         return NextResponse.json({
           authenticated: true,
-          user: {
-            id: userId,
-            email: (decoded.email as string) ?? "",
-            name: (decoded.name as string) ?? userId,
-            avatar: null,
-            role: "admin",
-            permissions: ["*"],
-          },
+          user,
         });
-      } catch (err) {
-        if ((err as { code?: string }).code !== "ERR_JWT_EXPIRED") {
-          // Token is invalid (not just expired) — clear everything
-          cookieStore.delete(ACCESS_TOKEN_COOKIE);
-          cookieStore.delete(REFRESH_TOKEN_COOKIE);
-          return NextResponse.json(
-            { authenticated: false, error: "Invalid token" },
-            { status: 401 }
-          );
-        }
-        // Token is expired — fall through to refresh
+      }
+      if (verified.reason === "invalid") {
+        cookieStore.delete(ACCESS_TOKEN_COOKIE);
+        cookieStore.delete(REFRESH_TOKEN_COOKIE);
+        return NextResponse.json(
+          { authenticated: false, error: "Invalid token" },
+          { status: 401 }
+        );
       }
     }
 
-    // Access token expired or missing — attempt refresh
     if (!refreshToken) {
       cookieStore.delete(ACCESS_TOKEN_COOKIE);
       return NextResponse.json(
@@ -72,69 +51,34 @@ export async function GET() {
       );
     }
 
-    const { session, error } = await nhostRefreshToken(refreshToken);
-
-    if (error || !session) {
+    const refreshed = await refreshAdminSession(refreshToken);
+    if (!refreshed.ok) {
       cookieStore.delete(ACCESS_TOKEN_COOKIE);
       cookieStore.delete(REFRESH_TOKEN_COOKIE);
       return NextResponse.json(
-        { authenticated: false, error: "Session expired" },
+        { authenticated: false, error: refreshed.error },
         { status: 401 }
       );
     }
 
-    // Verify the new access token and check admin role
-    let payload: Record<string, unknown>;
-    try {
-      const { payload: decoded } = await jwtVerify(session.accessToken, getNhostJwtSecret());
-      payload = decoded as Record<string, unknown>;
-    } catch {
-      cookieStore.delete(ACCESS_TOKEN_COOKIE);
-      cookieStore.delete(REFRESH_TOKEN_COOKIE);
-      return NextResponse.json(
-        { authenticated: false, error: "Token verification failed" },
-        { status: 401 }
-      );
-    }
-
-    if (!hasRole(payload, "admin")) {
-      cookieStore.delete(ACCESS_TOKEN_COOKIE);
-      cookieStore.delete(REFRESH_TOKEN_COOKIE);
-      return NextResponse.json(
-        { authenticated: false, error: "Admin role required" },
-        { status: 403 }
-      );
-    }
-
-    // Rotate cookies with fresh tokens
-    cookieStore.set(ACCESS_TOKEN_COOKIE, session.accessToken, {
-      httpOnly: true,
-      secure: isProd,
-      sameSite: "strict",
-      maxAge: session.accessTokenExpiresIn,
-      path: "/",
-    });
-
-    cookieStore.set(REFRESH_TOKEN_COOKIE, session.refreshToken, {
-      httpOnly: true,
-      secure: isProd,
-      sameSite: "strict",
-      maxAge: 30 * 24 * 60 * 60,
-      path: "/",
-    });
-
-    const { userId } = extractHasuraClaims(payload);
+    cookieStore.set(
+      ACCESS_TOKEN_COOKIE,
+      refreshed.session.accessToken,
+      opts.access(refreshed.session.accessTokenExpiresIn)
+    );
+    cookieStore.set(
+      REFRESH_TOKEN_COOKIE,
+      refreshed.session.refreshToken,
+      opts.refresh
+    );
 
     return NextResponse.json({
       authenticated: true,
-      user: {
-        id: userId,
-        email: session.user.email,
-        name: session.user.displayName,
-        avatar: session.user.avatarUrl ?? null,
-        role: "admin",
-        permissions: ["*"],
-      },
+      user: await resolveAdminUser(
+        refreshed.session.accessToken,
+        refreshed.payload,
+        refreshed.session
+      ),
     });
   } catch (error) {
     console.error("Session validation error:", error);

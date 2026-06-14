@@ -51,6 +51,11 @@ const navItems: NavItem[] = [
 
 const othersItems: NavItem[] = [
   {
+    icon: <GridIcon />,
+    name: "System Health",
+    path: "/dashboard/uptime-monitor",
+  },
+  {
     icon: <UserCircleIcon />,
     name: "User Management",
     path: "/dashboard/user-management",

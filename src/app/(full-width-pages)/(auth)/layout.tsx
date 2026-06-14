@@ -27,12 +27,20 @@ export default function AuthLayout({
                 <Image
                   width={231}
                   height={48}
-                  src="/images/logo/6ixtechlogo_full_white-png.png"
-                  alt="6ixtech Logo"
+                  src="/images/logo/logo-dark.svg"
+                  alt="Dropiti Admin Console"
+                  className="dark:hidden"
+                />
+                <Image
+                  width={231}
+                  height={48}
+                  src="/images/logo/auth-logo.svg"
+                  alt="Dropiti Admin Console"
+                  className="hidden dark:block"
                 />
               </Link>
               <p className="text-center text-gray-400 dark:text-white/60">
-                Admin Portal Made by the 6ixTech Team
+                Dropiti Admin Console
               </p>
             </div>
           </div>

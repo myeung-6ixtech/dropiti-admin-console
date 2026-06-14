@@ -3,10 +3,11 @@ import React, { useState } from "react";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { useAuth } from "@/context/AuthContext";
+import { getAdminDisplayName, getAdminInitial } from "@/lib/admin-user-display";
 
 export default function UserDropdown() {
   const [isOpen, setIsOpen] = useState(false);
-  const { user, logout } = useAuth();
+  const { user, logout, isLoading } = useAuth();
 
   function toggleDropdown(e: React.MouseEvent<HTMLButtonElement, MouseEvent>) {
     e.stopPropagation();
@@ -17,10 +18,9 @@ export default function UserDropdown() {
     setIsOpen(false);
   }
 
-  const displayName =
-    user?.name?.trim() || user?.email || (user?.role === "super_admin" ? "Super Admin" : "User");
+  const displayName = isLoading ? "Loading…" : getAdminDisplayName(user);
   const avatarSrc = user?.avatar?.trim();
-  const initial = (user?.name?.trim() || user?.email || "U").charAt(0).toUpperCase();
+  const initial = isLoading ? "…" : getAdminInitial(user);
 
   return (
     <div className="relative">

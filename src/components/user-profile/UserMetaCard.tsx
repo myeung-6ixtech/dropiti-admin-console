@@ -6,6 +6,7 @@ import Button from "../ui/button/Button";
 import Input from "../form/input/InputField";
 import Label from "../form/Label";
 import { useAuth } from "@/context/AuthContext";
+import { getAdminDisplayName, getAdminInitial } from "@/lib/admin-user-display";
 
 export default function UserMetaCard() {
   const { isOpen, openModal, closeModal } = useModal();
@@ -25,18 +26,18 @@ export default function UserMetaCard() {
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={user.avatar}
-                  alt={user?.name ?? "Admin"}
+                  alt={getAdminDisplayName(user)}
                   className="h-full w-full object-cover"
                 />
               ) : (
                 <div className="flex h-full w-full items-center justify-center text-2xl font-semibold text-gray-500 dark:text-gray-400">
-                  {(user?.name ?? user?.email ?? "A").charAt(0).toUpperCase()}
+                  {getAdminInitial(user)}
                 </div>
               )}
             </div>
             <div className="order-3 xl:order-2">
               <h4 className="mb-2 text-lg font-semibold text-center text-gray-800 dark:text-white/90 xl:text-left">
-                {user?.name || "Admin"}
+                {getAdminDisplayName(user)}
               </h4>
               <div className="flex flex-col items-center gap-1 text-center xl:flex-row xl:gap-3 xl:text-left">
                 <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -198,7 +199,7 @@ export default function UserMetaCard() {
                 <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
                   <div className="col-span-2 lg:col-span-1">
                     <Label>Name</Label>
-                    <Input type="text" defaultValue={user?.name ?? "Admin"} disabled />
+                    <Input type="text" defaultValue={getAdminDisplayName(user)} disabled />
                   </div>
 
                   <div className="col-span-2 lg:col-span-1">

@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
 import { nhostSignIn, hasRole, getNhostJwtSecret } from "@/lib/nhost";
-
-const ACCESS_TOKEN_COOKIE = "nhost_access_token";
-const REFRESH_TOKEN_COOKIE = "nhost_refresh_token";
+import {
+  ACCESS_TOKEN_COOKIE,
+  REFRESH_TOKEN_COOKIE,
+  cookieOptions,
+} from "@/lib/auth-session";
 
 export async function POST(request: NextRequest) {
   try {
@@ -59,22 +61,14 @@ export async function POST(request: NextRequest) {
 
     const cookieStore = await cookies();
     const isProd = process.env.NODE_ENV === "production";
+    const opts = cookieOptions(isProd);
 
     cookieStore.set(ACCESS_TOKEN_COOKIE, session.accessToken, {
-      httpOnly: true,
-      secure: isProd,
-      sameSite: "strict",
-      maxAge: session.accessTokenExpiresIn,
-      path: "/",
+      ...opts.access(session.accessTokenExpiresIn),
     });
 
     cookieStore.set(REFRESH_TOKEN_COOKIE, session.refreshToken, {
-      httpOnly: true,
-      secure: isProd,
-      sameSite: "strict",
-      // Refresh tokens are long-lived (30 days by default in Nhost)
-      maxAge: 30 * 24 * 60 * 60,
-      path: "/",
+      ...opts.refresh,
     });
 
     return NextResponse.json({

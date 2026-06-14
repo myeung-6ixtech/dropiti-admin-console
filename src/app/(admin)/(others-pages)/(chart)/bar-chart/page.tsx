@@ -5,9 +5,9 @@ import { Metadata } from "next";
 import React from "react";
 
 export const metadata: Metadata = {
-  title: "Next.js Bar Chart | TailAdmin - Next.js Dashboard Template",
+  title: "Bar Chart | Dropiti Admin Console",
   description:
-    "This is Next.js Bar Chart page for TailAdmin - Next.js Tailwind CSS Admin Dashboard Template",
+    "This is Bar Chart page for Dropiti Admin Console",
 };
 
 export default function page() {

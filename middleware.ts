@@ -1,82 +1,99 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { jwtVerify } from "jose";
+import {
+  ACCESS_TOKEN_COOKIE,
+  REFRESH_TOKEN_COOKIE,
+  cookieOptions,
+  refreshAdminSession,
+  verifyAccessToken,
+} from "@/lib/auth-session";
 
-const ACCESS_TOKEN_COOKIE = "nhost_access_token";
+const PROTECTED_ROUTE_PREFIXES = ["/dashboard", "/profile"];
 
-const PROTECTED_ROUTES = [
-  "/dashboard",
-  "/customers",
-  "/payments",
-  "/transfers",
-  "/beneficiaries",
-  "/settings",
-  "/reports",
-  "/properties",
-  "/payment-intents",
-  "/user-management",
-  "/media-library",
-];
-
-function getJwtSecret(): Uint8Array {
-  const secret = process.env.NHOST_JWT_SECRET;
-  if (!secret) throw new Error("NHOST_JWT_SECRET is not set");
-  return new TextEncoder().encode(secret);
+function isProtectedRoute(pathname: string): boolean {
+  return PROTECTED_ROUTE_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 }
 
-function hasAdminRole(payload: Record<string, unknown>): boolean {
-  const claims = payload["https://hasura.io/jwt/claims"] as
-    | Record<string, unknown>
-    | undefined;
-  const allowedRoles = (claims?.["x-hasura-allowed-roles"] as string[]) ?? [];
-  return allowedRoles.includes("admin");
+function redirectToSignin(request: NextRequest, clearCookies = false): NextResponse {
+  const response = NextResponse.redirect(new URL("/signin", request.url));
+  if (clearCookies) {
+    response.cookies.delete(ACCESS_TOKEN_COOKIE);
+    response.cookies.delete(REFRESH_TOKEN_COOKIE);
+  }
+  return response;
 }
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Never run auth logic or redirects on API routes (avoids ERR_TOO_MANY_REDIRECTS / 308 on fetch)
   if (pathname.startsWith("/api") || pathname.includes("/api/")) {
     return NextResponse.next();
   }
 
   const accessToken = request.cookies.get(ACCESS_TOKEN_COOKIE)?.value;
+  const refreshToken = request.cookies.get(REFRESH_TOKEN_COOKIE)?.value;
+  const isProd = process.env.NODE_ENV === "production";
+  const opts = cookieOptions(isProd);
 
-  const isProtectedRoute = PROTECTED_ROUTES.some((route) =>
-    pathname.startsWith(route)
-  );
-
-  if (isProtectedRoute) {
-    if (!accessToken) {
-      return NextResponse.redirect(new URL("/signin", request.url));
+  if (isProtectedRoute(pathname)) {
+    if (!accessToken && !refreshToken) {
+      return redirectToSignin(request);
     }
 
-    try {
-      const { payload } = await jwtVerify(accessToken, getJwtSecret());
+    if (accessToken) {
+      const verified = await verifyAccessToken(accessToken);
+      if (verified.ok) {
+        return NextResponse.next();
+      }
+      if (verified.reason === "invalid") {
+        return redirectToSignin(request, true);
+      }
+    }
 
-      if (!hasAdminRole(payload as Record<string, unknown>)) {
-        const response = NextResponse.redirect(new URL("/signin", request.url));
-        response.cookies.delete(ACCESS_TOKEN_COOKIE);
+    if (refreshToken) {
+      const refreshed = await refreshAdminSession(refreshToken);
+      if (refreshed.ok) {
+        const response = NextResponse.next();
+        response.cookies.set(
+          ACCESS_TOKEN_COOKIE,
+          refreshed.session.accessToken,
+          opts.access(refreshed.session.accessTokenExpiresIn)
+        );
+        response.cookies.set(
+          REFRESH_TOKEN_COOKIE,
+          refreshed.session.refreshToken,
+          opts.refresh
+        );
         return response;
       }
-    } catch {
-      // Token is invalid or expired — redirect to /signin; the client's
-      // AuthContext will attempt a refresh via /api/v1/auth/check on next load.
-      const response = NextResponse.redirect(new URL("/signin", request.url));
-      response.cookies.delete(ACCESS_TOKEN_COOKIE);
-      return response;
     }
+
+    return redirectToSignin(request, true);
   }
 
-  // Redirect authenticated users away from /signin and /
-  if ((pathname === "/signin" || pathname === "/") && accessToken) {
-    try {
-      const { payload } = await jwtVerify(accessToken, getJwtSecret());
-      if (hasAdminRole(payload as Record<string, unknown>)) {
+  if ((pathname === "/signin" || pathname === "/") && (accessToken || refreshToken)) {
+    if (accessToken) {
+      const verified = await verifyAccessToken(accessToken);
+      if (verified.ok) {
         return NextResponse.redirect(new URL("/dashboard", request.url));
       }
-    } catch {
-      // Expired/invalid token — let them through to /signin to re-authenticate
+    }
+    if (refreshToken) {
+      const refreshed = await refreshAdminSession(refreshToken);
+      if (refreshed.ok) {
+        const response = NextResponse.redirect(new URL("/dashboard", request.url));
+        response.cookies.set(
+          ACCESS_TOKEN_COOKIE,
+          refreshed.session.accessToken,
+          opts.access(refreshed.session.accessTokenExpiresIn)
+        );
+        response.cookies.set(
+          REFRESH_TOKEN_COOKIE,
+          refreshed.session.refreshToken,
+          opts.refresh
+        );
+        return response;
+      }
     }
   }
 
@@ -84,7 +101,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    "/((?!api|_next/static|_next/image|favicon.ico|images|public).*)",
-  ],
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|images|public).*)"],
 };

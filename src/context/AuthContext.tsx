@@ -1,21 +1,14 @@
 "use client";
-import React, { createContext, useContext, useState, useEffect } from "react";
-
-interface User {
-  id: string;       // Nhost user UUID
-  email: string;
-  name: string;
-  avatar?: string | null;
-  role: string;     // Always "admin" for this console
-  permissions: string[];
-}
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
+import type { AdminUser } from "@/lib/auth-session";
 
 interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
-  user: User | null;
+  user: AdminUser | null;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
+  refreshSession: () => Promise<boolean>;
   hasPermission: (permission: string) => boolean;
 }
 
@@ -29,54 +22,104 @@ export const useAuth = () => {
   return context;
 };
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
-  children,
-}) => {
+const PUBLIC_PATH_PREFIXES = ["/signin", "/signup"];
+
+function isPublicPath(pathname: string): boolean {
+  return PUBLIC_PATH_PREFIXES.some((p) => pathname.startsWith(p));
+}
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Keep a readable profile if a background refresh returns sparse JWT-only data. */
+function mergeAdminUser(prev: AdminUser | null, next: AdminUser): AdminUser {
+  if (!prev || prev.id !== next.id) return next;
+
+  const prevName = prev.name?.trim() ?? "";
+  const nextName = next.name?.trim() ?? "";
+  const prevHasReadableName = prevName && prevName !== prev.id && !UUID_RE.test(prevName);
+  const nextHasReadableName = nextName && nextName !== next.id && !UUID_RE.test(nextName);
+
+  if (!nextHasReadableName && prevHasReadableName) {
+    return {
+      ...next,
+      name: prev.name,
+      email: next.email || prev.email,
+      avatar: next.avatar ?? prev.avatar,
+    };
+  }
+
+  return next;
+}
+
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AdminUser | null>(null);
+  const refreshInFlight = useRef<Promise<boolean> | null>(null);
 
-  useEffect(() => {
-    checkAuthStatus();
+  const applySession = useCallback((nextUser: AdminUser | null, authenticated: boolean) => {
+    setIsAuthenticated(authenticated);
+    setUser((prev) => {
+      if (!authenticated || !nextUser) return null;
+      return mergeAdminUser(prev, nextUser);
+    });
   }, []);
 
-  const checkAuthStatus = async () => {
-    try {
-      const response = await fetch("/api/v1/auth/check", {
-        method: "GET",
-        credentials: "include",
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setIsAuthenticated(true);
-        setUser(data.user);
-      } else {
-        setIsAuthenticated(false);
-        setUser(null);
-        // Only redirect if we're not already on a public route
-        // Use window.location to avoid React render issues
-        if (typeof window !== 'undefined' && 
-            !window.location.pathname.startsWith('/signin') &&
-            !window.location.pathname.startsWith('/signup')) {
-          window.location.href = "/signin";
-        }
-      }
-    } catch (error) {
-      console.error("Auth check failed:", error);
-      setIsAuthenticated(false);
-      setUser(null);
-      // Only redirect if we're not already on a public route
-      // Use window.location to avoid React render issues
-      if (typeof window !== 'undefined' && 
-          !window.location.pathname.startsWith('/signin') &&
-          !window.location.pathname.startsWith('/signup')) {
-        window.location.href = "/signin";
-      }
-    } finally {
-      setIsLoading(false);
+  const refreshSession = useCallback(async (): Promise<boolean> => {
+    if (refreshInFlight.current) {
+      return refreshInFlight.current;
     }
-  };
+
+    const run = async (): Promise<boolean> => {
+      try {
+        const response = await fetch("/api/v1/auth/check", {
+          method: "GET",
+          credentials: "include",
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          applySession(data.user, true);
+          return true;
+        }
+
+        applySession(null, false);
+        return false;
+      } catch (error) {
+        console.error("Auth check failed:", error);
+        return false;
+      }
+    };
+
+    refreshInFlight.current = run().finally(() => {
+      refreshInFlight.current = null;
+    });
+
+    return refreshInFlight.current;
+  }, [applySession]);
+
+  useEffect(() => {
+    void (async () => {
+      const ok = await refreshSession();
+      if (
+        !ok &&
+        typeof window !== "undefined" &&
+        !isPublicPath(window.location.pathname)
+      ) {
+        window.location.replace("/signin");
+      }
+      setIsLoading(false);
+    })();
+  }, [refreshSession]);
+
+  useEffect(() => {
+    const onFocus = () => {
+      void refreshSession();
+    };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [refreshSession]);
 
   const login = async (email: string, password: string) => {
     try {
@@ -90,12 +133,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       const data = await response.json();
 
       if (response.ok) {
-        setIsAuthenticated(true);
-        setUser(data.user);
+        applySession(data.user, true);
         return { success: true };
-      } else {
-        return { success: false, error: data.error || "Login failed" };
       }
+      return { success: false, error: data.error || "Login failed" };
     } catch (error) {
       console.error("Login error:", error);
       return { success: false, error: "Network error" };
@@ -111,9 +152,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     } catch (error) {
       console.error("Logout error:", error);
     } finally {
-      setIsAuthenticated(false);
-      setUser(null);
-      // Use window.location for navigation to avoid React render issues
+      applySession(null, false);
       if (typeof window !== "undefined") {
         window.location.href = "/signin";
       }
@@ -136,6 +175,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         user,
         login,
         logout,
+        refreshSession,
         hasPermission,
       }}
     >

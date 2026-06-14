@@ -50,10 +50,24 @@ export async function adminFetch<T = unknown>(
         ? new URLSearchParams(init.searchParams)
         : undefined;
   const { searchParams: _sp, ...fetchInit } = init ?? {};
-  const res = await fetch(functionsBffUrl(pathSegment, params), {
-    credentials: "include",
-    ...fetchInit,
-  });
+
+  const doFetch = () =>
+    fetch(functionsBffUrl(pathSegment, params), {
+      credentials: "include",
+      ...fetchInit,
+    });
+
+  let res = await doFetch();
+  if (res.status === 401) {
+    const refreshed = await fetch("/api/v1/auth/check", {
+      method: "GET",
+      credentials: "include",
+    });
+    if (refreshed.ok) {
+      res = await doFetch();
+    }
+  }
+
   const parsed = await parseFunctionsEnvelope<T>(res);
   return {
     data: parsed.data,
