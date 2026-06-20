@@ -170,6 +170,19 @@ export function mapPropertyListing(row: Record<string, unknown>) {
       row.completion_percentage != null && row.completion_percentage !== ""
         ? Number(row.completion_percentage)
         : undefined,
+    latitude:
+      row.latitude != null && row.latitude !== ""
+        ? Number(row.latitude)
+        : null,
+    longitude:
+      row.longitude != null && row.longitude !== ""
+        ? Number(row.longitude)
+        : null,
+    missingCoordinates:
+      row.latitude == null ||
+      row.longitude == null ||
+      row.latitude === "" ||
+      row.longitude === "",
   };
 }
 

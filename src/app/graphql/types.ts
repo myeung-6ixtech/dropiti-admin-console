@@ -110,6 +110,8 @@ export interface RealEstateProperty {
   external_contact?: string | null;
   /** Listing completeness (0–100 or any numeric stored in DB). Not used to filter fetches in app code. */
   completion_percentage?: number | null;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export interface RealEstatePropertyInsertInput {
@@ -154,6 +156,8 @@ export interface RealEstatePropertyInsertInput {
   external_contact?: string | null;
   /** Listing completeness (0–100 or any numeric stored in DB). */
   completion_percentage?: number | null;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 // Generic CRUD operations

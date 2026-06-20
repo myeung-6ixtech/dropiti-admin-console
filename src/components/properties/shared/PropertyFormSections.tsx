@@ -324,7 +324,7 @@ export const AddressSection: React.FC<{
 
   // Macau districts
   const moDistricts = [
-    { value: 'nossa-senhora-fatima', label: 'Nossa Senhora de Fátima' },
+    { value: 'nossa-senhora-de-fatima', label: 'Nossa Senhora de Fátima' },
     { value: 'santo-antonio', label: 'Santo António' },
     { value: 'se', label: 'Sé' },
     { value: 'sao-lazaro', label: 'São Lázaro' },

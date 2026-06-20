@@ -14,6 +14,7 @@ import {
   PhotosSection,
 } from "@/components/properties/shared/PropertyFormSections";
 import { UserIcon } from "@/icons";
+import { getDistrictCentroid } from "@/lib/location-centroids";
 
 interface LandlordInfo {
   id: string;
@@ -73,6 +74,8 @@ function apiPropertyToFormData(apiProperty: Record<string, unknown>): Partial<Re
       return Number.isFinite(n) ? n : null;
     })(),
     status,
+    latitude: apiProperty.latitude as number | null | undefined,
+    longitude: apiProperty.longitude as number | null | undefined,
   };
 }
 
@@ -88,6 +91,12 @@ const PropertyEditPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [mediaPickerOpen, setMediaPickerOpen] = useState(false);
   const [formData, setFormData] = useState<Partial<RealEstatePropertyInsertInput>>({});
+  const [recalculatePin, setRecalculatePin] = useState(false);
+  const [generatingCoords, setGeneratingCoords] = useState(false);
+  const [coordTier, setCoordTier] = useState<string | null>(null);
+  const [coordsPrefillSource, setCoordsPrefillSource] = useState<
+    "district" | "server" | null
+  >(null);
   const [transferModalOpen, setTransferModalOpen] = useState(false);
   const [transferUsers, setTransferUsers] = useState<UserOption[]>([]);
   const [transferSearch, setTransferSearch] = useState("");
@@ -158,13 +167,94 @@ const PropertyEditPage: React.FC = () => {
   };
 
   const handleAddressChange = (field: string, value: string | boolean) => {
-    setFormData(prev => ({
-      ...prev,
-      address: {
+    setFormData((prev) => {
+      const nextAddress = {
         ...prev.address,
-        [field]: value
+        [field]: value,
+      };
+
+      let latitude = prev.latitude;
+      let longitude = prev.longitude;
+
+      if (field === "district" && typeof value === "string" && value.trim()) {
+        const country = String(nextAddress.country || "HK");
+        const point = getDistrictCentroid(country, value);
+        if (point) {
+          latitude = point.lat;
+          longitude = point.lng;
+        }
       }
-    }));
+
+      if (field === "country" && typeof value === "string" && nextAddress.district) {
+        const point = getDistrictCentroid(value, String(nextAddress.district));
+        if (point) {
+          latitude = point.lat;
+          longitude = point.lng;
+        }
+      }
+
+      return {
+        ...prev,
+        address: nextAddress,
+        latitude,
+        longitude,
+      };
+    });
+
+    if (field === "district" || field === "country") {
+      setCoordsPrefillSource("district");
+      setCoordTier("district");
+      setRecalculatePin(false);
+    }
+  };
+
+  const handleGenerateCoordinates = async () => {
+    try {
+      setGeneratingCoords(true);
+      setError(null);
+
+      const { adminFetch } = await import("@/lib/admin-api");
+      const { adminRoutes } = await import("@/lib/admin-routes");
+      const result = await adminFetch<{
+        latitude: number;
+        longitude: number;
+        tier: string;
+        pinPrecision?: string;
+      }>(adminRoutes.propertiesPreviewCoordinates(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          address: formData.address,
+          show_specific_location: formData.show_specific_location,
+          property_uuid: propertyId,
+          enableGeocode: true,
+        }),
+      });
+
+      if (!result.ok || !result.data) {
+        throw new Error(result.error || "Could not generate coordinates");
+      }
+
+      setFormData((prev) => ({
+        ...prev,
+        latitude: result.data!.latitude,
+        longitude: result.data!.longitude,
+      }));
+      setCoordTier(result.data.tier);
+      setCoordsPrefillSource("server");
+      setRecalculatePin(false);
+      showToast(
+        "success",
+        `Coordinates generated (${result.data.tier.replace("_", " ")})`,
+      );
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to generate coordinates";
+      setError(message);
+      showToast("error", message);
+    } finally {
+      setGeneratingCoords(false);
+    }
   };
 
   const handleAmenitiesChange = (amenities: {
@@ -209,7 +299,14 @@ const PropertyEditPage: React.FC = () => {
       const result = await adminFetch(adminRoutes.property(propertyId), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ updates: formData }),
+        body: JSON.stringify({
+          updates: {
+            ...formData,
+            latitude: formData.latitude,
+            longitude: formData.longitude,
+            recalculatePin,
+          },
+        }),
       });
 
       if (!result.ok) {
@@ -467,6 +564,89 @@ const PropertyEditPage: React.FC = () => {
               handleInputChange("show_specific_location", checked)
             }
           />
+
+          <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Map coordinates
+              </h3>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleGenerateCoordinates}
+                disabled={generatingCoords || saving}
+              >
+                {generatingCoords ? "Generating…" : "Generate from address"}
+              </Button>
+            </div>
+            <p className="mb-4 text-xs text-gray-500 dark:text-gray-400">
+              Changing district prefills an approximate centroid. Use Generate for
+              the full server resolver (geocode when eligible). Save persists
+              the values below unless you check recalculate on save.
+            </p>
+            {(coordTier || coordsPrefillSource) && (
+              <p className="mb-3 text-xs text-gray-600 dark:text-gray-300">
+                {coordsPrefillSource === "district" && (
+                  <span className="mr-2 rounded-full bg-amber-100 px-2 py-0.5 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">
+                    District prefill (approximate)
+                  </span>
+                )}
+                {coordsPrefillSource === "server" && coordTier && (
+                  <span className="mr-2 rounded-full bg-green-100 px-2 py-0.5 text-green-800 dark:bg-green-900/30 dark:text-green-200">
+                    Generated · {coordTier}
+                  </span>
+                )}
+              </p>
+            )}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 max-w-xl">
+              <div>
+                <label className="mb-1 block text-xs text-gray-500">Latitude</label>
+                <input
+                  type="number"
+                  step="any"
+                  value={formData.latitude ?? ""}
+                  onChange={(e) =>
+                    handleInputChange(
+                      "latitude",
+                      e.target.value === "" ? null : parseFloat(e.target.value),
+                    )
+                  }
+                  onFocus={() => {
+                    setCoordsPrefillSource(null);
+                    setRecalculatePin(false);
+                  }}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs text-gray-500">Longitude</label>
+                <input
+                  type="number"
+                  step="any"
+                  value={formData.longitude ?? ""}
+                  onChange={(e) =>
+                    handleInputChange(
+                      "longitude",
+                      e.target.value === "" ? null : parseFloat(e.target.value),
+                    )
+                  }
+                  onFocus={() => {
+                    setCoordsPrefillSource(null);
+                    setRecalculatePin(false);
+                  }}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                />
+              </div>
+            </div>
+            <label className="mt-3 flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+              <input
+                type="checkbox"
+                checked={recalculatePin}
+                onChange={(e) => setRecalculatePin(e.target.checked)}
+              />
+              Recalculate on save (runs full server resolver and overwrites lat/lng above)
+            </label>
+          </div>
 
           <PropertyDetailsSection
             formData={formData}

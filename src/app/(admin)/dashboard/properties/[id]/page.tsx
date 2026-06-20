@@ -41,6 +41,8 @@ function apiPropertyToCardShape(apiProperty: Record<string, unknown>): RealEstat
       apiProperty.external_contact != null && String(apiProperty.external_contact).trim() !== ""
         ? String(apiProperty.external_contact)
         : undefined,
+    latitude: apiProperty.latitude as number | null | undefined,
+    longitude: apiProperty.longitude as number | null | undefined,
   };
 }
 
@@ -256,15 +258,52 @@ const PropertyDetailsCard: React.FC<{ property: RealEstateProperty }> = ({ prope
 };
 
 // Property Address Card Component
+function inferMapPinLabel(property: RealEstateProperty): { label: string; detail: string } {
+  const addr = property.address || {};
+  const hasStreet = Boolean(addr.street?.trim());
+  const hasCoords =
+    typeof property.latitude === "number" && typeof property.longitude === "number";
+
+  if (!hasCoords) {
+    return { label: "Missing", detail: "No coordinates stored" };
+  }
+  if (property.show_specific_location && hasStreet) {
+    return { label: "Exact", detail: "Street-level pin (geocoded or manual)" };
+  }
+  return { label: "Approximate (district)", detail: "District/region centroid with jitter" };
+}
+
 const PropertyAddressCard: React.FC<{ property: RealEstateProperty }> = ({ property }) => {
   const address = property.address || {};
   const hasAddress = Object.values(address).some(value => value);
+  const pin = inferMapPinLabel(property);
 
   return (
     <div>
       <h4 className="text-lg font-semibold text-gray-800 dark:text-white/90 lg:mb-6">
         Address
       </h4>
+
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <span className="text-xs text-gray-500 dark:text-gray-400">Map pin:</span>
+        <span
+          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+            pin.label === "Exact"
+              ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+              : pin.label === "Missing"
+                ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
+                : "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
+          }`}
+        >
+          {pin.label}
+        </span>
+        <span className="text-xs text-gray-500 dark:text-gray-400">{pin.detail}</span>
+        {property.latitude != null && property.longitude != null && (
+          <span className="text-xs font-mono text-gray-500 dark:text-gray-400">
+            {property.latitude.toFixed(5)}, {property.longitude.toFixed(5)}
+          </span>
+        )}
+      </div>
 
       {hasAddress ? (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-7 2xl:gap-x-32">

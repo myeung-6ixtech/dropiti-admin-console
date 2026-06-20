@@ -56,6 +56,11 @@ const othersItems: NavItem[] = [
     path: "/dashboard/uptime-monitor",
   },
   {
+    icon: <FolderIcon />,
+    name: "Map data quality",
+    path: "/dashboard/data-quality",
+  },
+  {
     icon: <UserCircleIcon />,
     name: "User Management",
     path: "/dashboard/user-management",

@@ -208,7 +208,7 @@ export const DEFAULT_PROPERTY_CONFIG: PropertyFieldConfig = {
     { value: 'tuen-mun', label: 'Tuen Mun', stateValue: 'HK' },
     { value: 'yuen-long', label: 'Yuen Long', stateValue: 'HK' },
     // Macau
-    { value: 'nossa-senhora-fatima', label: 'Nossa Senhora de Fátima', stateValue: 'MO' },
+    { value: 'nossa-senhora-de-fatima', label: 'Nossa Senhora de Fátima', stateValue: 'MO' },
     { value: 'santo-antonio', label: 'Santo António', stateValue: 'MO' },
     { value: 'se', label: 'Sé', stateValue: 'MO' },
     { value: 'sao-lazaro', label: 'São Lázaro', stateValue: 'MO' },

@@ -13,6 +13,9 @@ export const adminRoutes = {
 
   properties: () => "admin/properties",
   property: (uuid: string) => `admin/properties/${seg(uuid)}`,
+  propertiesBackfillCoordinates: () => "admin/properties/backfill-coordinates",
+  propertiesCoordinateQuality: () => "admin/properties/coordinate-quality",
+  propertiesPreviewCoordinates: () => "admin/properties/preview-coordinates",
 
   offersIncoming: () => "admin/offers/incoming",
   offerIncoming: (offerId: string | number) =>

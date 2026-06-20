@@ -17,6 +17,7 @@ interface PropertyListing {
   images?: string[];
   status?: string;
   completionPercentage?: number;
+  missingCoordinates?: boolean;
 }
 
 const TITLE_MAX_LEN = 30;
@@ -32,6 +33,7 @@ const PropertiesPage: React.FC = () => {
   const [properties, setProperties] = useState<PropertyListing[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [missingCoordsOnly, setMissingCoordsOnly] = useState(false);
 
   useEffect(() => {
     const fetchProperties = async () => {
@@ -106,6 +108,15 @@ const PropertiesPage: React.FC = () => {
         </button>
       </div>
 
+      <label className="mb-4 flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+        <input
+          type="checkbox"
+          checked={missingCoordsOnly}
+          onChange={(e) => setMissingCoordsOnly(e.target.checked)}
+        />
+        Show only listings missing map coordinates
+      </label>
+
       {properties.length === 0 ? (
         <div className="py-12 text-center">
           <div className="mb-4 text-6xl">🏠</div>
@@ -136,7 +147,9 @@ const PropertiesPage: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {properties.map((property) => (
+              {properties
+                .filter((p) => !missingCoordsOnly || p.missingCoordinates)
+                .map((property) => (
                 <tr
                   key={property.id}
                   className="border-b border-gray-200 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-700"
@@ -145,7 +158,12 @@ const PropertiesPage: React.FC = () => {
                     className="max-w-[12rem] whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900 dark:text-white"
                     title={property.title || undefined}
                   >
-                    {truncateTitle(property.title || "")}
+                    <span>{truncateTitle(property.title || "")}</span>
+                    {property.missingCoordinates && (
+                      <span className="ml-2 inline-flex rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-medium text-red-800 dark:bg-red-900/30 dark:text-red-300">
+                        Missing coords
+                      </span>
+                    )}
                   </td>
                   <td className="max-w-xs truncate whitespace-nowrap px-6 py-4 text-sm text-gray-600 dark:text-gray-300">
                     {property.description || (
